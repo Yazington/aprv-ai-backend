@@ -1,15 +1,12 @@
-import os
+# import os
 from typing import Generator
 
 import openai
-from dotenv import load_dotenv
-
-# from config.settings import Settings
 from fastapi import HTTPException
-from pydantic_settings import BaseSettings
 
-load_dotenv()
-openai_api_key = os.getenv("OPENAI_API_KEY")
+from app.config.settings import Settings
+
+# openai_api_key = os.getenv("OPENAI_API_KEY")
 
 
 # class Settings(BaseSettings):
@@ -19,20 +16,19 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 #         env_file = ".env"
 
 
-# settings = Settings()  # type: ignore
+settings = Settings()  # type: ignore
+
+client = openai.OpenAI(api_key=settings.openai_api_key)
 
 
-# openai.api_key = settings.openai_api_key
-client = openai.OpenAI(api_key=openai_api_key)
-
-
-def stream_openai_response(
-    prompt: str,
-) -> Generator[str, None, None]:
+def stream_openai_response(prompt: str, model: str = "gpt-4o") -> Generator[str, None, None]:
+    """
+    Streams tokens for a given query from OpenAI API
+    """
     try:
         # The response should be typed as a synchronous generator
         response = client.chat.completions.create(
-            model="gpt-4",
+            model=model,
             messages=[{"role": "user", "content": prompt}],
             stream=True,
         )
@@ -56,20 +52,20 @@ def stream_openai_response(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-def main():
-    """
-    Test the stream_openai_response function by sending a prompt
-    and printing the streamed response in real-time.
-    """
-    prompt = "Hi, how are you?"
-    # response = stream_openai_response(prompt)
-    # print(json(response))
-    try:
-        for content in stream_openai_response(prompt):
-            print(content, end="", flush=True)
-    except HTTPException as e:
-        print(f"Error: {e.detail}")
+# def main():
+#     """
+#     Test the stream_openai_response function by sending a prompt
+#     and printing the streamed response in real-time.
+#     """
+#     prompt = "Hi, how are you?"
+#     # response = stream_openai_response(prompt)
+#     # print(json(response))
+#     try:
+#         for content in stream_openai_response(prompt):
+#             print(content, end="", flush=True)
+#     except HTTPException as e:
+#         print(f"Error: {e.detail}")
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
