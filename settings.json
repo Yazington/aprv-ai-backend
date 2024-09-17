@@ -1,6 +1,0 @@
-{
-    "python.linting.enabled": true,
-    "python.linting.ruffEnabled": true,
-    "python.linting.lintOnSave": true,
-    "python.formatting.provider": "none"
-}
