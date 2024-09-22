@@ -1,12 +1,16 @@
-from typing import Generator
+# import asyncio
+# import json
+from typing import AsyncGenerator
 
+# import aiohttp
 import openai
 from config.settings import settings
-from fastapi import HTTPException
+
+# from fastapi import HTTPException
 
 # settings = Settings()  # type: ignore
-print("here: ", settings.openai_api_key)
-client = openai.OpenAI(api_key=settings.openai_api_key)
+# print("here: ", settings.openai_api_key)
+# client = openai.OpenAI(api_key=settings.openai_api_key)
 
 
 # from dotenv import load_dotenv
@@ -19,55 +23,28 @@ client = openai.OpenAI(api_key=settings.openai_api_key)
 # if openai_api_key is None:
 #     exit(1)
 
-# client = openai.OpenAI(api_key=openai_api_key)
+client = openai.OpenAI(api_key=settings.openai_api_key)
 
 
-def stream_openai_response(prompt: str, model: str = "gpt-3.5-turbo") -> Generator[str, None, None]:
+async def stream_openai_response(prompt: str, model: str = "gpt-3.5-turbo") -> AsyncGenerator[str, None]:
     """
-    Streams tokens for a given query from OpenAI API
+    Streams tokens for a given query from OpenAI API using the SDK.
     """
-    try:
-        # The response should be typed as a synchronous generator
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            stream=True,
-        )
-    except openai._exceptions.OpenAIError as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
-
-    partial_message = ""
-    try:
-        for chunk in response:
-            # Print the entire chunk to debug
-            # print(f"Received chunk: {chunk}")
-
-            delta = chunk.choices[0].delta
-
-            if delta is not None and delta.content is not None:
-                # Accumulate the partial message
-                partial_message += delta.content
-                yield delta.content
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+    stream = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": f"{prompt}"}],
+        stream=True,
+    )
+    for chunk in stream:
+        yield chunk.choices[0].delta.content or ""
 
 
-# def main():
-#     """
-#     Test the stream_openai_response function by sending a prompt
-#     and printing the streamed response in real-time.
-#     """
-#     prompt = "What can you do ?"
-#     # response = stream_openai_response(prompt)
-#     # print(json(response))
-#     try:
-#         for content in stream_openai_response(prompt):
-#             print(content, end="", flush=True)
-#     except HTTPException as e:
-#         print(f"Error: {e.detail}")
+# async def main():
+#     prompt = "What is the capital of France?"
+#     async for token in stream_openai_response(prompt):
+#         print(token, end="")
 
 
+# # Run the test script using asyncio
 # if __name__ == "__main__":
-#     print("test")
-#     main()
+#     asyncio.run(main())

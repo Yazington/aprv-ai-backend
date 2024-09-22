@@ -9,12 +9,7 @@ router = APIRouter(
 )
 
 
-@router.get("/help")
-async def get_help():
-    return "api running"
-
-
-@router.post("/stream")
+@router.post("/generate")
 async def chat_stream(chat_request: ChatRequest):
     """
     Endpoint to stream chat responses from OpenAI.
