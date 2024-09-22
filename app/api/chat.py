@@ -1,13 +1,17 @@
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
-
-from app.models.chat_models import ChatRequest
-from app.services.openai_service import stream_openai_response
+from models.chat_models import ChatRequest
+from services.openai_service import stream_openai_response
 
 router = APIRouter(
     prefix="/chat",
     tags=["Chat"],
 )
+
+
+@router.get("/help")
+async def get_help():
+    return "api running"
 
 
 @router.post("/stream")

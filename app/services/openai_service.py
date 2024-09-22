@@ -1,12 +1,11 @@
 from typing import Generator
 
 import openai
+from config.settings import settings
 from fastapi import HTTPException
 
-from app.config.settings import Settings
-
-settings = Settings()  # type: ignore
-
+# settings = Settings()  # type: ignore
+print("here: ", settings.openai_api_key)
 client = openai.OpenAI(api_key=settings.openai_api_key)
 
 

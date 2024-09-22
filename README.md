@@ -31,3 +31,11 @@ A FastAPI project with integrated Ruff, Mypy, and Black for linting, type checki
 - **Ruff**: Linter
 - **Mypy**: Type checker
 - **Black**: Formatter
+
+# Commands
+
+```
+run app under docker: docker-compose up -d
+get logs for app under docker: docker logs $(docker ps -a | grep aprv-ai | awk '{print $1}')
+start app: uvicorn main:app --app-dir ./app
+```

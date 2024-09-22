@@ -1,9 +1,8 @@
 import logging
 
+from api import chat
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
-from app.api import chat
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
