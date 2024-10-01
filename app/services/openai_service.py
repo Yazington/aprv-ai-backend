@@ -23,20 +23,28 @@ from config.settings import settings
 # if openai_api_key is None:
 #     exit(1)
 
-client = openai.OpenAI(api_key=settings.openai_api_key)
+
+# client = openai.OpenAI(api_key=settings.openai_api_key)
+class OpenAIClient:
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = openai.AsyncClient(api_key=settings.openai_api_key)
+        return cls._instance
 
 
 async def stream_openai_response(prompt: str, model: str = "gpt-3.5-turbo") -> AsyncGenerator[str, None]:
     """
     Streams tokens for a given query from OpenAI API using the SDK.
     """
-    stream = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": f"{prompt}"}],
-        stream=True,
-    )
-    for chunk in stream:
-        yield chunk.choices[0].delta.content or ""
+    client = OpenAIClient.get_instance()
+    stream = await client.chat.completions.create(model=model, messages=[{"role": "user", "content": f"{prompt}"}], stream=True)
+
+    async for chunk in stream:
+        content = chunk.choices[0].delta.content or ""
+        yield content
 
 
 # async def main():
