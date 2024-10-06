@@ -1,6 +1,6 @@
 import logging
 
-from api import chat
+from api import chat, upload
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -39,3 +39,4 @@ app.add_middleware(
 )
 
 app.include_router(chat.router)
+app.include_router(upload.router)

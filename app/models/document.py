@@ -1,10 +1,11 @@
 from datetime import datetime
+from typing import Optional
 
 from odmantic import Field, Model
 
 
 class Document(Model):
-    name: str
-    aws_object_path: str
+    name: Optional[str]
+    fs_id: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     modified_at: datetime = Field(default_factory=datetime.utcnow)
