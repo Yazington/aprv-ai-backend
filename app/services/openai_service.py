@@ -1,58 +1,53 @@
-# import asyncio
-# import json
+import base64
 from typing import AsyncGenerator
 
-# import aiohttp
 import openai
 from config.settings import settings
-
-# from fastapi import HTTPException
-
-# settings = Settings()  # type: ignore
-# print("here: ", settings.openai_api_key)
-# client = openai.OpenAI(api_key=settings.openai_api_key)
+from fastapi import Depends
 
 
-# from dotenv import load_dotenv
-
-# load_dotenv()
-# from pydantic_settings import BaseSettings
-# openai_api_key = os.getenv("OPENAI_API_KEY")
-
-
-# if openai_api_key is None:
-#     exit(1)
-
-
-# client = openai.OpenAI(api_key=settings.openai_api_key)
 class OpenAIClient:
-    _instance = None
+    def __init__(self):
+        self.client = openai.AsyncClient(api_key=settings.openai_api_key)
 
-    @classmethod
-    def get_instance(cls):
-        if cls._instance is None:
-            cls._instance = openai.AsyncClient(api_key=settings.openai_api_key)
-        return cls._instance
+    async def stream_openai_llm_response(self, prompt: str, model: str = "gpt-3.5-turbo") -> AsyncGenerator[str, None]:
+        """
+        Streams tokens for a given query from OpenAI API using the SDK.
+        """
+        stream = await self.client.chat.completions.create(model=model, messages=[{"role": "user", "content": f"{prompt}"}], stream=True)
+
+        async for chunk in stream:
+            content = chunk.choices[0].delta.content or ""
+            yield content
+
+    async def stream_openai_vision_response(self, prompt: str, image: bytes) -> AsyncGenerator[str, None]:
+        """
+        Streams tokens for a given query from OpenAI API using the SDK with an image.
+        """
+        # Convert image to base64 encoded string
+        image_base64 = base64.b64encode(image).decode("utf-8")
+
+        stream = await self.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ],
+            stream=True,
+        )
+
+        async for chunk in stream:
+            content = chunk.choices[0].delta.content or ""
+            yield content
 
 
-async def stream_openai_response(prompt: str, model: str = "gpt-3.5-turbo") -> AsyncGenerator[str, None]:
-    """
-    Streams tokens for a given query from OpenAI API using the SDK.
-    """
-    client = OpenAIClient.get_instance()
-    stream = await client.chat.completions.create(model=model, messages=[{"role": "user", "content": f"{prompt}"}], stream=True)
-
-    async for chunk in stream:
-        content = chunk.choices[0].delta.content or ""
-        yield content
+def get_openai_client():
+    return OpenAIClient()
 
 
-# async def main():
-#     prompt = "What is the capital of France?"
-#     async for token in stream_openai_response(prompt):
-#         print(token, end="")
-
-
-# # Run the test script using asyncio
-# if __name__ == "__main__":
-#     asyncio.run(main())
+openai_client: OpenAIClient = Depends(get_openai_client)

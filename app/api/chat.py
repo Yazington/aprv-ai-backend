@@ -9,7 +9,7 @@ from models.message import Message
 from odmantic import ObjectId
 from odmantic.query import asc
 from services.mongo_service import MongoService, mongo_service
-from services.openai_service import stream_openai_response
+from services.openai_service import OpenAIClient, openai_client
 
 router = APIRouter(
     prefix="/chat",
@@ -43,9 +43,10 @@ async def create_prompt(request: CreatePromptRequest, mongo_service: MongoServic
 
 
 @router.get("/generate/{message_id}")
-async def get_prompt_model_response(message_id: str, mongo_service: MongoService = mongo_service):
+async def get_prompt_model_response(
+    message_id: str, mongo_service: MongoService = mongo_service, openai_client: OpenAIClient = openai_client
+):
     prompt_message = await mongo_service.engine.find_one(Message, Message.id == ObjectId(message_id))
-
     if prompt_message is None:
         raise HTTPException(status_code=404, detail=f"Failed to generate response as initial prompt was not found: {message_id}")
 
@@ -69,7 +70,7 @@ async def get_prompt_model_response(message_id: str, mongo_service: MongoService
         full_response_message = Message(content=full_response, is_from_human=False)
 
         # Await the streaming operation
-        async for chunk in stream_openai_response(full_prompt):
+        async for chunk in openai_client.stream_openai_llm_response(full_prompt):
             if chunk:
                 full_response += chunk
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
