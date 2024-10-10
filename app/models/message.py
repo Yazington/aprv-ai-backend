@@ -9,6 +9,9 @@ class Message(Model):
     conversation_id: Optional[ObjectId] = None  # Make it optional
     content: str
     is_from_human: bool
+    user_id: ObjectId
     created_at: datetime = Field(default_factory=datetime.utcnow)
     modified_at: datetime = Field(default_factory=datetime.utcnow)
-    model_config = {"indexes": lambda: [Index(asc(Message.conversation_id), asc(Message.created_at), asc(Message.modified_at))]}
+    model_config = {
+        "indexes": lambda: [Index(asc(Message.user_id), asc(Message.conversation_id), asc(Message.created_at), asc(Message.modified_at))]
+    }  # type: ignore

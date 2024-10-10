@@ -1,7 +1,7 @@
 import json
 from typing import AsyncGenerator, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from models.conversation import Conversation
 from models.create_prompt_request import CreatePromptRequest
@@ -18,19 +18,25 @@ router = APIRouter(
 
 
 @router.post("/create_prompt")
-async def create_prompt(request: CreatePromptRequest, mongo_service: MongoService = mongo_service):
-    message = Message(conversation_id=request.conversation_id, content=request.prompt, is_from_human=True)
+async def create_prompt(create_prompt_request: CreatePromptRequest, request: Request, mongo_service: MongoService = mongo_service):
+    message = Message(
+        id=ObjectId(),
+        conversation_id=ObjectId(create_prompt_request.conversation_id),
+        content=create_prompt_request.prompt,
+        is_from_human=True,
+        user_id=ObjectId(request.state.user_id),
+    )
     # Save the message first to get its ID
     message = await mongo_service.engine.save(message)
 
-    if not request.conversation_id:
+    if not create_prompt_request.conversation_id:
         # Create a new Conversation and append the message ID
-        conversation = Conversation(all_messages_ids=[message.id])
+        conversation = Conversation(id=ObjectId(), all_messages_ids=[message.id], user_id=ObjectId(request.state.user_id))
         conversation = await mongo_service.engine.save(conversation)
         message.conversation_id = conversation.id
     else:
         # Find or create the conversation
-        conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(request.conversation_id))
+        conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(create_prompt_request.conversation_id))
         if not conversation:
             raise ValueError("Conversation not found")
 
@@ -44,7 +50,10 @@ async def create_prompt(request: CreatePromptRequest, mongo_service: MongoServic
 
 @router.get("/generate/{message_id}")
 async def get_prompt_model_response(
-    message_id: str, mongo_service: MongoService = mongo_service, openai_client: OpenAIClient = openai_client
+    message_id: str,
+    user_id: str = Query(...),  # User ID as a query parameter
+    mongo_service: MongoService = mongo_service,
+    openai_client: OpenAIClient = openai_client,
 ):
     prompt_message = await mongo_service.engine.find_one(Message, Message.id == ObjectId(message_id))
     if prompt_message is None:
@@ -67,7 +76,7 @@ async def get_prompt_model_response(
 
     async def event_generator() -> AsyncGenerator[str, Optional[str]]:
         full_response = ""
-        full_response_message = Message(content=full_response, is_from_human=False)
+        full_response_message = Message(id=ObjectId(), content=full_response, is_from_human=False, user_id=ObjectId(user_id))
 
         # Await the streaming operation
         async for chunk in openai_client.stream_openai_llm_response(full_prompt):

@@ -1,20 +1,13 @@
 import logging
 
-from api import chat, upload
+from api import auth, chat, conversation, upload
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from middlewares.token_validation_middleware import TokenValidationMiddleware
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# logger = logging.getLogger("my_logger")
-# handler = logging.StreamHandler()
-# formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-# handler.setFormatter(formatter)
-# logger.addHandler(handler)
-
-# # Set the logger level to ERROR or higher if you want to avoid debug/info logs
-# logger.setLevel(logging.ERROR)
 
 app = FastAPI(
     title="APRV AI Backend",
@@ -32,11 +25,15 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=["http://localhost:5173"],  # Replace with your frontend URL
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all HTTP methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allow all headers, including Authorization
 )
+
+app.add_middleware(TokenValidationMiddleware)
 
 app.include_router(chat.router)
 app.include_router(upload.router)
+app.include_router(auth.router)
+app.include_router(conversation.router)
