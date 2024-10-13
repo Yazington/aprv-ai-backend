@@ -65,7 +65,7 @@ async def auth_google(auth_request: AuthRequest, mongo_service: MongoService = m
         new_user = User(**new_user_data)
 
         # Generate JWT token
-        expiration_time = datetime.datetime.utcnow() + datetime.timedelta(hours=1)  # Token expires in 1 hour
+        expiration_time = datetime.datetime.utcnow() + datetime.timedelta(days=1)  # Token expires in 1 hour
         jwt_payload = {"email": email, "exp": expiration_time.timestamp(), "user_id": str(new_user.id)}
         access_token = jwt.encode(jwt_payload, settings.aprv_ai_api_key, algorithm="HS256")
 
@@ -78,7 +78,7 @@ async def auth_google(auth_request: AuthRequest, mongo_service: MongoService = m
         existing_user.modified_at = datetime.datetime.utcnow()
 
         # Generate JWT token
-        expiration_time = datetime.datetime.utcnow() + datetime.timedelta(hours=1)  # Token expires in 1 hour
+        expiration_time = datetime.datetime.utcnow() + datetime.timedelta(days=1)  # Token expires in 1 hour
         jwt_payload = {"email": email, "exp": expiration_time.timestamp(), "user_id": str(existing_user.id)}
         access_token = jwt.encode(jwt_payload, settings.aprv_ai_api_key, algorithm="HS256")
 

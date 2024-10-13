@@ -10,7 +10,7 @@ class OpenAIClient:
     def __init__(self):
         self.client = openai.AsyncClient(api_key=settings.openai_api_key)
 
-    async def stream_openai_llm_response(self, prompt: str, model: str = "gpt-3.5-turbo") -> AsyncGenerator[str, None]:
+    async def stream_openai_llm_response(self, prompt: str, model: str = "gpt-4o-mini") -> AsyncGenerator[str, None]:
         """
         Streams tokens for a given query from OpenAI API using the SDK.
         """

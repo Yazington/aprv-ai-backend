@@ -4,7 +4,8 @@ from typing import Union
 
 import jwt
 from config.settings import settings
-from fastapi import HTTPException, Request
+from fastapi import Request
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
@@ -16,8 +17,6 @@ class TokenValidationMiddleware(BaseHTTPMiddleware):
 
         if not settings.aprv_ai_api_key:
             raise Exception("aprv_ai_api_key not set!")
-
-        # logging.info(request.url.path)
 
         # Skip token validation for specific paths if necessary
         if request.url.path == "/auth/google":
@@ -34,7 +33,7 @@ class TokenValidationMiddleware(BaseHTTPMiddleware):
             token = request.query_params.get("access_token")
 
         if not token:
-            raise HTTPException(status_code=401, detail="Invalid or missing token")
+            return self._unauthorized_response()
 
         try:
             # Decode and verify the JWT token
@@ -44,11 +43,11 @@ class TokenValidationMiddleware(BaseHTTPMiddleware):
             user_id = payload.get("user_id")
 
             if not email or not exp:
-                raise HTTPException(status_code=401, detail="Invalid token payload")
+                return self._unauthorized_response()
 
             # Check if the token is expired
-            if datetime.datetime.utcnow().timestamp() > exp:
-                raise HTTPException(status_code=401, detail="Token has expired")
+            if exp and datetime.datetime.utcnow().timestamp() > exp:
+                return self._unauthorized_response()
 
             # Save validated token info in request.state
             request.state.user_email = email
@@ -59,11 +58,23 @@ class TokenValidationMiddleware(BaseHTTPMiddleware):
 
         except jwt.ExpiredSignatureError:
             logging.error(f"Expired token for {email}")
-            raise HTTPException(status_code=401, detail="Token has expired") from None
+            return self._unauthorized_response()
         except jwt.InvalidTokenError:
             logging.error(f"Invalid token {token}")
-            raise HTTPException(status_code=401, detail="Invalid token") from None
+            return self._unauthorized_response()
 
         # Call the next middleware or route
         response = await call_next(request)
         return response
+
+    def _unauthorized_response(self):
+        return JSONResponse(
+            content={"detail": "Token expired"},
+            status_code=401,
+            headers={
+                "Access-Control-Allow-Origin": "*",  # Replace with your allowed origins
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": "*",
+                "Access-Control-Allow-Headers": "*",
+            },
+        )
