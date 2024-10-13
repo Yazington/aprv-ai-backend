@@ -1,0 +1,964 @@
+(aprvai) yaz@scientific:~/Workspace/aprv-ai/aprv-ai-backend$ uvicorn main:app --app-dir ./app --reload --port 9000
+INFO:     Will watch for changes in these directories: ['/home/yaz/Workspace/aprv-ai/aprv-ai-backend']
+INFO:     Uvicorn running on http://127.0.0.1:9000 (Press CTRL+C to quit)
+INFO:     Started reloader process [1185576] using WatchFiles
+INFO:     Started server process [1185578]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+2024-10-13 18:38:45,633 - root - INFO - Token valid for user: yazan.maarouf.1@gmail.com
+INFO:     127.0.0.1:49498 - "GET /conversations?user_id=670c49322eedd441fe2f40c8 HTTP/1.1" 200 OK
+2024-10-13 18:38:45,645 - root - INFO - Token valid for user: yazan.maarouf.1@gmail.com
+INFO:     127.0.0.1:49506 - "GET /conversations?user_id=670c49322eedd441fe2f40c8 HTTP/1.1" 200 OK
+2024-10-13 18:38:51,502 - root - INFO - Token valid for user: yazan.maarouf.1@gmail.com
+INFO:     127.0.0.1:49512 - "POST /upload/image?conversation_id=null HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49512 - "OPTIONS /upload/pdf?conversation_id=670c4bfba477fcc39dd01f69 HTTP/1.1" 200 OK
+2024-10-13 18:38:54,715 - root - INFO - Token valid for user: yazan.maarouf.1@gmail.com
+id=ObjectId('670c4bfba477fcc39dd01f69') all_messages_ids=[] user_id=ObjectId('670c49322eedd441fe2f40c8') contract_id=None design_id=ObjectId('670c4bfba477fcc39dd01f63') design_process_task_id=None created_at=datetime.datetime(2024, 10, 13, 22, 38, 51, 537000) modified_at=datetime.datetime(2024, 10, 13, 22, 38, 51, 537000)
+INFO:     127.0.0.1:49512 - "POST /upload/pdf?conversation_id=670c4bfba477fcc39dd01f69 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49512 - "OPTIONS /conversations/process-design?conversation_id=670c4bfba477fcc39dd01f69 HTTP/1.1" 200 OK
+2024-10-13 18:38:56,268 - root - INFO - Token valid for user: yazan.maarouf.1@gmail.com
+INFO:     127.0.0.1:49512 - "GET /conversations/process-design?conversation_id=670c4bfba477fcc39dd01f69 HTTP/1.1" 200 OK
+2024-10-13 18:38:56,288 - root - INFO - Starting background task for conversation_id: 670c4bfba477fcc39dd01f69
+2024-10-13 18:38:56,299 - root - INFO - Task saved successfully
+2024-10-13 18:38:56,310 - root - INFO - starting processing for pdf doc
+
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            1
+Design principles
+5
+The star always shines from above.
+The guiding principle of our new brand design.
+The brand mark is the focal point 
+of our new brand design. 
+1.
+The star always shines from above. 
+2.
+The 2D star is used for reproductions.        
+The 3D star is used for physical applications.
+3.
+The proportions of the star and word mark are always 1 to 3. 
+1
+3
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 7115
+2024-10-13 18:39:03,781 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image incorporates a modern and sporty aesthetic, which could appeal to a broader audience. However, it does not reflect the specific design principles outlined in the brand licensing contract. The focus of the brand appears to be on the star logo, which is not prominently featured in the jacket design. Additionally, the given text emphasizes the star's prominence and specific proportions, which the design does not adhere to. Thus, the design seems unsuitable for the context of the brand licensing contract.
+
+SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            1
+Design principles
+5
+The star always shines from above.
+The guiding principle of our new brand design.
+The brand mark is the focal point 
+of our new brand design. 
+1.
+The star always shines from above. 
+2.
+The 2D star is used for reproductions.        
+The 3D star is used for physical applications.
+3.
+The proportions of the star and word mark are always 1 to 3. 
+1
+3
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 4534
+2024-10-13 18:39:12,312 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image features a contemporary jacket with a sporty aesthetic, characterized by bold colors and modern styling. However, the brand licensing contract text focuses on a brand mark (specifically a star) and its proportions, which are not represented in the design. Additionally, the accompanying images do not seem to align with the design elements discussed in the contract. Therefore, the design does not effectively relate to the brand mark or the principles specified in the contract.
+
+2. SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            1
+Design principles
+6
+4.
+The star is centred above the word mark.
+5.
+The star and word mark can be positioned a variable distance
+from each other in the same area, either on an image or an
+Arrowsilver background.
+6.
+The story is always told between the star and word mark.
+7.
+The square grid determines the position of each individual
+design element.
+8.
+Arrowsilver is the primary colour
+used in communication.
+9.
+Midnightblue is the primary colour
+used at the Point of Sale.
+10.
+Corporate A is our primary typeface. 
+Corporate S is reserved for more functional purposes.
+Headlines
+Body copy
+Functional
+Lorem ipsum
+dolores.
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 5515
+2024-10-13 18:39:19,817 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image features a jacket that combines colors and elements which may align with a sporty or modern aesthetic. However, the text of the brand licensing contract highlights specific design principles, including the use of "Arrowsilver" as the primary color and "Midnightblue" for Point of Sale contexts. The jacket does not prominently feature these colors, which could lead to misalignment with the branding guidelines.
+
+The images from the brand licensing contract also appear to represent high-end, streamlined designs (e.g., the car in the second image), which may contrast with the more casual look of the jacket. The emphasis on positioning and storytelling in the contract suggests a cohesive brand narrative that this design might not support effectively.
+
+2. SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            1
+Design principles
+6
+4.
+The star is centred above the word mark.
+5.
+The star and word mark can be positioned a variable distance
+from each other in the same area, either on an image or an
+Arrowsilver background.
+6.
+The story is always told between the star and word mark.
+7.
+The square grid determines the position of each individual
+design element.
+8.
+Arrowsilver is the primary colour
+used in communication.
+9.
+Midnightblue is the primary colour
+used at the Point of Sale.
+10.
+Corporate A is our primary typeface. 
+Corporate S is reserved for more functional purposes.
+Headlines
+Body copy
+Functional
+Lorem ipsum
+dolores.
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 4079
+2024-10-13 18:39:30,764 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image features a sporty, modern aesthetic with a color scheme that appears to align with the suggested "Arrowsilver" and "Midnightblue." However, the design lacks the specific elements mentioned in the brand licensing contract, such as the star and word mark positioning. It does not seem to incorporate the required typography or adhere thoroughly to the layout principles outlined in the text. Therefore, it may not fully meet the standards set forth for brand representation.
+
+2. SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            2
+Brand mark 
+8
+The 2D brand mark is used in our communication. The standard proportions defined 
+for all 3D applications provide the basis for this brand mark. 
+The 3-D brand mark is used for physical applications. Its construction is based on standard proportions.
+This ensures that the proportions of the star are accurate for every application size.
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 18042
+2024-10-13 18:39:38,191 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image features a sporty jacket that incorporates a color scheme and aesthetic that aligns well with modern branding, particularly in the automotive or high-performance sectors, which could resonate with the luxury and quality communicated by the Mercedes-Benz brand mark in the second image. The use of similar colors could reinforce brand identity, making the design suitable for the page. The text discusses the importance of maintaining brand mark proportions in 3D applications, which the jacket design seems to respect as it reflects a modern interpretation without distorting the brand's identity.
+
+2. SCORE: 1
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            2
+Brand mark – featured on image*
+10
+White brand mark on dark-coloured image
+White brand mark on light-coloured image
+The white brand mark may also be featured on an image background in our communication.
+It is important to select a section of the image which is not cluttered and provides sufficient
+contrast with the brand mark (at least 35%).
+* The examples shown here apply to both the star and word mark.
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 3615
+2024-10-13 18:39:44,674 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image features a well-structured color palette with prominent dark and light sections, which may offer suitable contrast for a white brand mark. Given the brand licensing contract's requirement for at least 35% contrast, this design seems to meet the criteria, as the areas are not cluttered and provide clarity for brand visibility. The background in the second image, being predominantly light blue, allows for the possibility of incorporating the brand mark effectively. 
+
+2. SCORE: 1
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            2
+Brand mark – featured on image*
+10
+White brand mark on dark-coloured image
+White brand mark on light-coloured image
+The white brand mark may also be featured on an image background in our communication.
+It is important to select a section of the image which is not cluttered and provides sufficient
+contrast with the brand mark (at least 35%).
+* The examples shown here apply to both the star and word mark.
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 4361
+2024-10-13 18:39:51,990 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image features bold colors and a structured layout that could provide a good background for a brand mark. However, the second image is rather cluttered and lacks contrast, which may not be ideal for placing a white brand mark as specified in the brand licensing contract. There are areas in the design with multiple colors that might not meet the criterion of having at least 35% contrast as required. Thus, the design may not be entirely suitable based on the contract specifications regarding clarity and contrast.
+
+SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            2
+Brand mark – placement and mandatory buffer zone (centred brand mark, fixed spacing)
+15
+A mandatory buffer zone of at least 1 star diameter is
+maintained between the brand mark and all other layout
+elements or the format edges.
+If this amount of available space cannot be guaranteed for
+specific media or formats, a minimum distance of 0.25 star
+diameters must separate the brand mark elements from any
+other graphic elements and the respective format edges. 
+Application examples based on a sponsoring backdrop
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 36462
+2024-10-13 18:39:58,379 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image features a modern and dynamic aesthetic, which could be appealing in a brand licensing context. However, the brand licensing contract text specifies strict rules regarding the placement and buffer zone for brand marks. The design needs to allow for adequate spacing around any brand marks to comply with these guidelines. If the design does not incorporate or account for the required buffer zones and placements as outlined in the contract, it may not be suitable.
+
+2. SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            2
+Brand mark – placement and mandatory buffer zone (asymmetrical brand mark, fixed spacing)
+16
+Application examples based on banner
+If this amount of available space cannot be guaranteed for
+specific media or formats, a minimum distance of 0.25 star
+diameters must separate the brand mark elements from any
+other graphic elements and the respective format edges. 
+A mandatory buffer zone of at least 1 star diameter is
+maintained between the brand mark and all other layout
+elements or the format edges.
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 32569
+2024-10-13 18:40:05,687 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image features a stylish jacket with a modern and vibrant aesthetic. However, the evaluation of its suitability for the brand licensing contract primarily hinges on whether it adheres to the specified guidelines regarding brand mark placement and buffer zones as outlined in the contract text. The images in the brand licensing contract feature branding elements that require strict adherence to spacing and buffer areas to maintain brand integrity. Since the design does not display any brand marks or indicate compliance with the specified buffer zones, it does not seem to align with the contract's requirements.
+
+2. SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            6
+Layout system – basic rules
+34
+Televisions perused bourgeois cat bought aardvarks.
+Five Klingons ran away.
+Five Klingons ran away.
+The irascible orifice towed.
+Five Klingons ran away quickly. Five ran away
+Klingons early away. Five orifices clever bought
+era dwarves yet five elefan ants ran away quick-
+ly. Macintoshes auctioned of one chrysanthemu
+two purple kisses other umpteen dogs, because
+the trailer laughed.
+But one telephoned thema Jabberwockies at their
+put rid poisons lamely untan roles five. Klingons
+ran away. Because them that trailer laughed, but 
+Five orifices cleverly bount dwarves. Neive ele-
+phants every away quickly Macintoshes auctio-
+ned off one chrysanthers.
+Because them trailer laughed, but on telephon 
+at thema Jabberwockies. Them putrid another
+poisons lamely untangles five. Five Klingon 
+off ranaway. Five orifices cleverly bount eram
+dwarves, yet five elephants ran away.  
+www.mercedes-benz.com/guaredisch
+The star and word mark are separated from each other in the layout.
+The star is placed at the top and the word mark at the bottom 
+of the format. The proportions between the two are always 1 to 3. 
+Both elements are placed on the right-hand side of the format. 
+The star and word mark always appear in the same area, whether
+on an Arrowsilver background or an image. 
+The flexible design makes it possible to create communication
+which focuses on either text or images. 
+Placement of brand mark
+The brand mark on various backgrounds
+Flexible communication
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 5964
+2024-10-13 18:40:13,243 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design depicted in the first image does not directly relate to the text or images included in the brand licensing contract. The text discusses layout systems, brand mark placement, and communication flexibility, while the images focus on a specific product (a car). The design lacks a clear connection to the Mercedes-Benz brand identity and the structured presentation outlined in the contract. Based on these observations, the design is not suitable for the page content.
+
+SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            6
+Layout system – basic rules
+34
+Televisions perused bourgeois cat bought aardvarks.
+Five Klingons ran away.
+Five Klingons ran away.
+The irascible orifice towed.
+Five Klingons ran away quickly. Five ran away
+Klingons early away. Five orifices clever bought
+era dwarves yet five elefan ants ran away quick-
+ly. Macintoshes auctioned of one chrysanthemu
+two purple kisses other umpteen dogs, because
+the trailer laughed.
+But one telephoned thema Jabberwockies at their
+put rid poisons lamely untan roles five. Klingons
+ran away. Because them that trailer laughed, but 
+Five orifices cleverly bount dwarves. Neive ele-
+phants every away quickly Macintoshes auctio-
+ned off one chrysanthers.
+Because them trailer laughed, but on telephon 
+at thema Jabberwockies. Them putrid another
+poisons lamely untangles five. Five Klingon 
+off ranaway. Five orifices cleverly bount eram
+dwarves, yet five elephants ran away.  
+www.mercedes-benz.com/guaredisch
+The star and word mark are separated from each other in the layout.
+The star is placed at the top and the word mark at the bottom 
+of the format. The proportions between the two are always 1 to 3. 
+Both elements are placed on the right-hand side of the format. 
+The star and word mark always appear in the same area, whether
+on an Arrowsilver background or an image. 
+The flexible design makes it possible to create communication
+which focuses on either text or images. 
+Placement of brand mark
+The brand mark on various backgrounds
+Flexible communication
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 5426
+2024-10-13 18:40:19,943 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image features a modern, sporty look, which may not align with the more sophisticated and professional tone typically associated with a brand like Mercedes-Benz. The text in the brand licensing contract focuses on layout rules and brand marks, which suggests that the design should reflect the brand's identity clearly and effectively. Given the context of the other images, which likely represent luxury and elegance, the sporty aesthetic of the jacket may not be suitable. 
+
+2. SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            6
+Layout system – basic rules
+34
+Televisions perused bourgeois cat bought aardvarks.
+Five Klingons ran away.
+Five Klingons ran away.
+The irascible orifice towed.
+Five Klingons ran away quickly. Five ran away
+Klingons early away. Five orifices clever bought
+era dwarves yet five elefan ants ran away quick-
+ly. Macintoshes auctioned of one chrysanthemu
+two purple kisses other umpteen dogs, because
+the trailer laughed.
+But one telephoned thema Jabberwockies at their
+put rid poisons lamely untan roles five. Klingons
+ran away. Because them that trailer laughed, but 
+Five orifices cleverly bount dwarves. Neive ele-
+phants every away quickly Macintoshes auctio-
+ned off one chrysanthers.
+Because them trailer laughed, but on telephon 
+at thema Jabberwockies. Them putrid another
+poisons lamely untangles five. Five Klingon 
+off ranaway. Five orifices cleverly bount eram
+dwarves, yet five elephants ran away.  
+www.mercedes-benz.com/guaredisch
+The star and word mark are separated from each other in the layout.
+The star is placed at the top and the word mark at the bottom 
+of the format. The proportions between the two are always 1 to 3. 
+Both elements are placed on the right-hand side of the format. 
+The star and word mark always appear in the same area, whether
+on an Arrowsilver background or an image. 
+The flexible design makes it possible to create communication
+which focuses on either text or images. 
+Placement of brand mark
+The brand mark on various backgrounds
+Flexible communication
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 3317
+2024-10-13 18:40:27,377 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image features a modern, stylish jacket, which may not align well with the brand and layout requirements outlined in the brand licensing contract. The text emphasizes the importance of the Mercedes-Benz branding and specific placement rules for the brand's star and word mark. Since the images provided in the brand licensing contract focus on a Mercedes-Benz car, the design of the jacket does not fit the automotive brand's overall aesthetic and purpose. Therefore, the design is not suitable for the context of the brand licensing contract.
+
+SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 2611
+2024-10-13 18:40:35,783 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image is modern and dynamic, showcasing a stylish jacket that aligns well with the themes of being exciting and elegant mentioned in the brand licensing contract. However, the accompanying imagery in the second image features a more subdued, scenic landscape that contrasts with the vibrant, fashion-forward nature of the jacket design. This disparity suggests that while the jacket design is strong on its own, it may not cohesively fit with the laid-back mood of the other images used for layout purposes in the contract.
+
+2. SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 3043
+2024-10-13 18:40:43,725 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image is modern and dynamic, aligning with the mood board descriptors such as "exciting," "modern," and "high-contrast." The style of the jacket could evoke a sense of elegance and emotional appeal, which matches well with the themes presented in the brand licensing contract. However, the images of vehicles and scenery in the second image might not directly complement the fashion-oriented nature of the design. Overall, the design does contribute to the overall aesthetics of the page but may lack relevance to the imagery used in the contract.
+
+2. SCORE: 1
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 3431
+2024-10-13 18:40:50,558 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image is modern and dynamic, which aligns well with the adjectives described in the brand licensing contract text. It complements the desired characteristics like exciting and elegant. However, the other images focus on scenery and natural elements, which may not necessarily integrate seamlessly with the athletic or urban feel of the jacket design. The contrast between the urban style of the jacket and the serene, natural images may detract from the cohesive branding message.
+
+2. SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 5496
+2024-10-13 18:40:58,496 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image is modern and dynamic, aligning well with the contract's emphasis on defined and exciting imagery. The color scheme is bold and can evoke a sense of emotional connection, matching the contract's descriptors of "exciting" and "elegant." However, the relevance of the design to the landscapes depicted in the second image may vary, as the road and scenery suggest a more natural or adventurous vibe, while the jacket design is more urban and sporty. Still, the modern and high-contrast aesthetics could complement the overall theme of the contract.
+
+2. SCORE: 1
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 4498
+2024-10-13 18:41:05,221 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design presented in the first image is modern, dynamic, and elegant, matching the qualities described in the brand licensing contract. It has an exciting appearance that resonates with the emotions and characteristics outlined, such as being defined and generous. The second image of the car and the overall imagery suggested in the contract also align well, depicting a high-contrast and sophisticated aesthetic suitable for a brand that prioritizes a leading and authentic image.
+
+2. SCORE: 1
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 4583
+2024-10-13 18:41:11,557 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image is modern, dynamic, and elegant, which aligns well with the keywords from the brand licensing contract text. It embodies a sporty and contemporary aesthetic that complements the high-contrast, exciting imagery of the car in the second image. The clean lines and bold colors in the design can create a cohesive visual identity that resonates with the overall themes of excitement and authenticity expressed in the contract.
+
+2. SCORE: 1
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 3034
+2024-10-13 18:41:15,894 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image is modern and dynamic, which aligns well with the keywords described in the brand licensing contract such as "defined, dynamic, exciting, modern, elegant." The distinct color scheme and style of the jacket make it appealing and relevant to a contemporary audience. However, since the accompanying images of vehicles and other elements showcase a different category (automotive), the cohesiveness might be slightly affected. Still, the overall energy of the design complements the inspiring tone of the contract. 
+
+2. SCORE: 1
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 4185
+2024-10-13 18:41:25,163 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+The design in the first image aligns well with the characteristics outlined in the brand licensing contract. It embodies a modern and dynamic aesthetic, which corresponds to the contract's description of being exciting and elegant. Additionally, the design’s colors and style can complement the imagery provided in the other images, showcasing a sense of authenticity and emotional connection.
+
+Given this analysis, the design is suitable for the requirements and themes expressed in the brand licensing contract.
+
+SCORE: 1
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 5259
+2024-10-13 18:41:29,549 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+The first image features a modern and dynamic design, characterized by a striking color palette and sleek lines. This aligns well with the brand licensing contract, which emphasizes imagery that is defined, dynamic, exciting, and modern. The aesthetic of the hoodie complements the suggested vehicle imagery by conveying a sense of elegance and contemporary style, thus maintaining a cohesive theme.
+
+Overall, the design appears to fit well with the contract's criteria, particularly since it aims for a dynamic and emotional presentation.
+
+SCORE: 1
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 4020
+2024-10-13 18:41:36,898 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image is dynamic and modern, which aligns well with the keywords such as "exciting," "elegant," and "meaningful" in the brand licensing contract. However, it is essential to note that the second image focuses on a vehicle and architecture, indicating a different context. While the first image possesses an appealing design quality, it may not fully cater to the specific imagery context outlined in the contract that emphasizes vehicles and architectural scenery.
+
+2. SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 3924
+2024-10-13 18:41:42,514 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image aligns well with the themes outlined in the brand licensing contract. It embodies a modern and dynamic aesthetic, characterized by its contemporary styling and color scheme, which reflects elegance and excitement. The mood boards and textual descriptions emphasize imagery that is leading, authentic, and high-contrast, qualities that this design exhibits effectively.
+
+2. SCORE: 1
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 3584
+2024-10-13 18:41:48,734 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image features a modern, dynamic aesthetic that aligns with the elements described in the brand licensing contract text. The themes of excitement and modernity in the contract resonate well with the visual appeal of the jacket design. Additionally, the color scheme and sleek lines contribute to an elegant and contemporary feel, making it complementary to the architectural and dynamic imagery referenced in the contract. Therefore, the design is suitable for the page content.
+
+SCORE: 1
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 3545
+^CINFO:     Shutting down
+INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+2024-10-13 18:41:54,186 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design (first image) is modern, dynamic, and visually appealing, aligning with the stated attributes in the brand licensing contract, such as "defined," "exciting," and "modern." However, the imagery in the other images is more architectural and minimalistic, which may not complement the energetic style of the jacket design. The overall cohesion could be improved, as the first image's vibrant colors and sporty aesthetic contrast with the more subdued tones of the other images. 
+
+2. SCORE: 0
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 3022
+2024-10-13 18:41:58,450 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+1. The design in the first image is modern, dynamic, and visually appealing, aligning well with the keywords described in the brand licensing contract. It complements the imagery described in the text by being exciting and suitable for a contemporary aesthetic. However, the second image, which appears to be architectural, may not relate directly to the design of the jacket, and could introduce a slight disconnect. Overall, the design captures the essence of modern branding but may need to enhance its connection to architectural themes.
+
+2. SCORE: 1
+                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+
+                            Evaluate whether the design is suitable for the following page of brand licensing contract:
+                            Design:
+                            first image
+
+                            Brand Licensing Contract Text:
+                            7
+Imagery – mood boards*
+40
+defined, dynamic, exciting, modern, elegant, emotional, generous
+Vehicle (example: passenger car)
+Architecture
+Scenery
+exciting, unusual, leading, authentic, generous, high-contrast
+generous, dynamic, meaningful, visionary, emotional, positive
+*Images for layout purposes only
+
+                            Brand Licensing Contract Images:
+                            all images that are not the first image
+
+                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
+                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
+                            where 1 means the design is good and 0 means it is not.
+                            
+1208314 4697
+^CINFO:     Finished server process [1185578]
+INFO:     Stopping reloader process [1185576]
+(aprvai) yaz@scientific:~/Workspace/aprv-ai/aprv-ai-backend$ 
