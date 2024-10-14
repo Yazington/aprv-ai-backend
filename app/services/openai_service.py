@@ -4,6 +4,7 @@ from typing import AsyncGenerator, List
 import openai
 from config.settings import settings
 from fastapi import Depends
+from main import MODEL
 
 
 class OpenAIClient:
@@ -11,7 +12,7 @@ class OpenAIClient:
         if settings and settings.openai_api_key:
             self.client = openai.AsyncClient(api_key=settings.openai_api_key)
 
-    async def stream_openai_llm_response(self, prompt: str, model: str = "gpt-4o-mini") -> AsyncGenerator[str, None]:
+    async def stream_openai_llm_response(self, prompt: str, model: str = MODEL) -> AsyncGenerator[str, None]:
         """
         Streams tokens for a given query from OpenAI API using the SDK.
         """
@@ -29,7 +30,7 @@ class OpenAIClient:
         image_base64 = base64.b64encode(image).decode("utf-8")
 
         stream = await self.client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=MODEL,
             messages=[
                 {
                     "role": "user",
@@ -58,7 +59,7 @@ class OpenAIClient:
         non_design_url_obj = {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{non_design_base64}"}}
 
         stream = await self.client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=MODEL,
             messages=[
                 {
                     "role": "user",
