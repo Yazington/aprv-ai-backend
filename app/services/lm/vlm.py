@@ -75,7 +75,11 @@ class VLMService:
         images.append(byte_stream.getvalue())  # Append byte array to the list
 
         # Use the method to stream multi-image responses
-        async for content in openai_client.stream_openai_multi_images_response(prompt=prompt, images=images):
+        async for content in openai_client.stream_openai_multi_images_response(
+            system_prompt="You are a brand licensing professional reviewing designs against brand licensing guidelines",
+            prompt=prompt,
+            images=images,
+        ):
             yield content
 
 

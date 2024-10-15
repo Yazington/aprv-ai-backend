@@ -10,7 +10,6 @@ from middlewares.token_validation_middleware import TokenValidationMiddleware
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MODEL = "gpt-4o-mini"
 
 app = FastAPI(
     title="APRV AI Backend",

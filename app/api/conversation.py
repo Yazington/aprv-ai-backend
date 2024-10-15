@@ -1,15 +1,19 @@
 import io
 import logging
+from typing import Union
 
+from fastapi.encoders import jsonable_encoder
 import fitz  # type: ignore
 from fastapi import APIRouter, BackgroundTasks, Query
+from fastapi.responses import JSONResponse
 from fpdf import FPDF
 from gridfs import GridOut
+from models.review import Review
 from models.conversation import Conversation
 from models.task import Task, TaskStatus
 from odmantic import ObjectId
 from services.mongo_service import MongoService, mongo_service
-from services.openai_service import OpenAIClient, openai_client
+from services.openai_service import BrandGuideline, OpenAIClient, openai_client
 
 router = APIRouter(
     prefix="/conversations",
@@ -31,6 +35,57 @@ async def get_conversations(user_id: str = Query(...), mongo_service: MongoServi
     return await mongo_service.engine.find(Conversation, Conversation.user_id == ObjectId(user_id))
     # print(conversations)
     # return None
+
+
+@router.get("/process-design")
+async def process_design(
+    background_tasks: BackgroundTasks,
+    conversation_id: str = Query(...),
+    mongo_service: MongoService = mongo_service,
+    openai_client: OpenAIClient = openai_client,
+):
+    if not conversation_id:
+        return {"error": "conversation_id is required"}
+
+    # Start the background task
+    background_tasks.add_task(background_process_design, conversation_id, mongo_service, openai_client)
+
+    # Return immediate response with status code 200
+    return {"message": "Process started", "conversation_id": conversation_id}
+
+
+# Polling endpoint to check if task is done
+@router.get("/process-status")
+async def process_status(conversation_id: str = Query(...), mongo_service: MongoService = mongo_service):
+    if not conversation_id:
+        return JSONResponse("Please provide a conversation_id", status_code=400)
+
+    conversation_of_task = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
+
+    if not conversation_of_task.design_process_task_id:
+        return JSONResponse("conversation doesn't have a task", status_code=400)
+
+    task_of_conversation = await mongo_service.engine.find_one(Task, Task.id == conversation_of_task.design_process_task_id)
+    if task_of_conversation.status == TaskStatus.IN_PROGRESS.name:
+        return JSONResponse(jsonable_encoder({"task_id": str(task_of_conversation.id)}), status_code=202)
+    if task_of_conversation.status == TaskStatus.COMPLETE.name:
+        return JSONResponse(jsonable_encoder({"task_id": str(task_of_conversation.id)}), status_code=200)
+
+
+@router.get("/process-result")
+async def get_process_result(task_id: str = Query(...), mongo_service: MongoService = mongo_service):
+    if not task_id:
+        return JSONResponse("Please provide a task_id", status_code=400)
+
+    task_of_conversation = await mongo_service.engine.find_one(Task, Task.id == ObjectId(task_id))
+    if not task_of_conversation.generated_pdf_id:
+        return JSONResponse(
+            jsonable_encoder(
+                {"task_id": None, "error": "there was an issue with the given task. It was probably never created or in progress"}
+            ),
+            status_code=500,
+        )
+    return await mongo_service.engine.find(Review, Review.conversation_id == task_of_conversation.conversation_id)
 
 
 # Simulated background task function
@@ -91,7 +146,7 @@ async def background_process_design(conversation_id: str, mongo_service: MongoSe
         pdf_output.set_auto_page_break(auto=True, margin=15)
 
         logging.info("starting processing for pdf doc")
-
+        count = 0
         # Loop through each page in the PDF
         for page_num in range(len(pdf_document)):
             page = pdf_document.load_page(page_num)
@@ -102,46 +157,62 @@ async def background_process_design(conversation_id: str, mongo_service: MongoSe
             # Extract images from the page
             images = page.get_images(full=True)
 
+            guideline_image_bytes_list = []
             # Loop through each image on the page
             for img in images:
                 xref = img[0]
                 base_image = pdf_document.extract_image(xref)
-                image_bytes = base_image["image"]
-                # image_ext = base_image["ext"]
+                guideline_image_bytes = base_image["image"]
+                guideline_image_bytes_list.append(guideline_image_bytes)
 
-                # Prepare the prompt (this is a placeholder, you can replace it with your actual prompt)
-                prompt = f"""
-                            THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING CONTRACT!
+            # Prepare the prompt (this is a placeholder, you can replace it with your actual prompt)
+            prompt = f"""
+THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING BRAND GUIDELINE PAGE!
+Design: first image
+Brand Licensing Brand Guideline Images: all images that are not the first image
 
-                            Evaluate whether the design is suitable for the following page of brand licensing contract:
-                            Design:
-                            first image
+Brand Licensing Brand Guideline Page Text:
+{text}
+1. Analyze the text + `images that arent the first image` of the Brand Licensing Guideline, focusing specifically on relevant directives or guidelines like 'must' 'shall' 'required to' 'may not' 'shall not', 'prohibited', etc. Ignore any general context, introductions, table of contents, or explanations. Determine if the text is applicable to the design. If the text includes relevant directives or guidelines, set "is_review_required" to True; otherwise, set it to False.
+2. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing brand guideline ("review_description")
+3. Provide a score between False and True indicating the suitability of the design for the page content. Evaluate whether the design is suitable for the following page of brand licensing brand guideline. (set False or True only for "guideline_achieved"). 
+            """
+            print(prompt)
 
-                            Brand Licensing Contract Text:
-                            {text}
-                            Brand Licensing Contract Images:
-                            all images that are not the first image
+            content: Union[BrandGuideline | None] = await openai_client.get_openai_multi_images_response(
+                """
+You are a brand licensing professional reviewing designs against brand licensing guidelines
+                """,
+                prompt,
+                design_bytes,
+                guideline_image_bytes_list,
+            )
+            print(content)
+            if not content:
+                raise Exception(f"Failed to get structured content for conversation id: {conversation_id}")
 
-                            1. Provide a description of wether or not the design is good with regards to the all images and text from the brand licensing contract 
-                            2. Provide a score between 0 and 1 indicating the suitability of the design for the page content (return 0 or 1 only). Write the word "SCORE:" followed by 0 or 1 
-                            where 1 means the design is good and 0 means it is not.
-                            """
-                content_list = []
-                print(prompt)
-                print(len(design_bytes), len(image_bytes))
-                async for content in openai_client.stream_openai_multi_images_response(prompt, design_bytes, image_bytes):
-                    print(content, end="")
-                    content_list.append(content)
+            if content and content.is_review_required:
+                review = await mongo_service.engine.save(
+                    Review(
+                        id=ObjectId(),
+                        conversation_id=conversation.id,
+                        review_description=content.review_description,
+                        guideline_achieved=content.guideline_achieved,
+                    )
+                )
 
-                # Combine the content received from the OpenAI client
-                generated_content = "".join(content_list)
+            # Add a new page to the output PDF
+            pdf_output.add_page()
 
-                # Add a new page to the output PDF
-                pdf_output.add_page()
-
-                # Write the content from OpenAI to the new PDF page
-                pdf_output.set_font("Arial", size=12)
-                pdf_output.multi_cell(0, 10, f"Page {page_num + 1}\n\n{generated_content}")
+            # Write the content from OpenAI to the new PDF page
+            pdf_output.set_font("Arial", size=12)
+            if content and content.is_review_required:
+                pdf_output.multi_cell(0, 10, f"Page {page_num + 1}\n\n{review.review_description}\n\n{text}")
+            else:
+                pdf_output.multi_cell(0, 10, f"Page {page_num + 1}\n\n{text}")
+            count += 1
+            if count == 2:
+                break
 
         pdf_document.close()
 
@@ -164,42 +235,3 @@ async def background_process_design(conversation_id: str, mongo_service: MongoSe
         task.status = TaskStatus.FAILED.name
         logging.error(f"task failed: {str(e)}")
         await mongo_service.engine.save(task)
-
-
-@router.get("/process-design")
-async def process_design(
-    background_tasks: BackgroundTasks,
-    conversation_id: str = Query(...),
-    mongo_service: MongoService = mongo_service,
-    openai_client: OpenAIClient = openai_client,
-):
-    if not conversation_id:
-        return {"error": "conversation_id is required"}
-
-    # Start the background task
-    background_tasks.add_task(background_process_design, conversation_id, mongo_service, openai_client)
-
-    # Return immediate response with status code 200
-    return {"message": "Process started", "conversation_id": conversation_id}
-
-
-# Polling endpoint to check if task is done
-@router.get("/process-status")
-async def process_status(conversation_id: str = Query(...), mongo_service: MongoService = mongo_service):
-    # # Check if the task exists in our status tracker
-    # if conversation_id not in task_status:
-    #     return {"error": "No task found for the given conversation_id"}
-    # conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
-
-    # if not conversation.contract_id or not conversation.design_id:
-    #     return Response(status_code=415, content="Please upload both contract and design")
-
-    # status = task_status[conversation_id]
-
-    # if status == "done":
-    #     # Fetch the result if task is done (e.g., retrieve data from MongoDB or another source)
-    #     result = await mongo_service.get_design_result(conversation_id)
-    #     return {"status": "done", "conversation_id": conversation_id, "result": result}
-
-    # return {"status": status, "conversation_id": conversation_id}
-    pass
