@@ -41,7 +41,7 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],  # Replace with your frontend URL
+    allow_origins=["http://localhost:5174"],  # Replace with your frontend URL
     allow_credentials=True,
     allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
     allow_headers=["*"],  # Allow all headers, including Authorization

@@ -8,6 +8,7 @@ from odmantic.query import asc
 
 class Review(Model):
     conversation_id: ObjectId
+    page_number: Optional[int] = None
     review_description: Optional[str] = None
     guideline_achieved: Optional[bool] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)

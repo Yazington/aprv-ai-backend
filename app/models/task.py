@@ -15,7 +15,7 @@ class TaskStatus(Enum):
 class Task(Model):
     conversation_id: Optional[ObjectId] = None  # Make it optional
     status: str
-    generated_pdf_id: Optional[ObjectId] = None
+    generated_txt_id: Optional[ObjectId] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     modified_at: datetime = Field(default_factory=datetime.utcnow)
     model_config = {"indexes": lambda: [Index(asc(Task.conversation_id), asc(Task.created_at), asc(Task.modified_at))]}  # type: ignore

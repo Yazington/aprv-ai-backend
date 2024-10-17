@@ -2,17 +2,18 @@ import base64
 from typing import AsyncGenerator, List, Optional, Union
 
 import openai
+from models.llm_ready_page import BrandGuideline
 from config.settings import settings
 from fastapi import Depends
 from pydantic import BaseModel
+from swarm import Swarm
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_random_exponential,
+)
 
-MODEL = "gpt-4o-mini"
-
-
-class BrandGuideline(BaseModel):
-    is_review_required: bool
-    review_description: Optional[str] = None
-    guideline_achieved: Optional[bool] = None
+MODEL = "gpt-4o"
 
 
 class OpenAIClient:
@@ -20,6 +21,8 @@ class OpenAIClient:
         if settings and settings.openai_api_key:
             self.async_client = openai.AsyncClient(api_key=settings.openai_api_key)
             self.client = openai.OpenAI(api_key=settings.aprv_ai_api_key)
+            self.async_swarm = Swarm(client=self.async_client)
+            self.swarm = Swarm(client=self.client)
 
     async def stream_openai_llm_response(self, prompt: str, model: str = MODEL) -> AsyncGenerator[str, None]:
         """
@@ -84,11 +87,12 @@ class OpenAIClient:
             content = chunk.choices[0].delta.content or ""
             yield content
 
+    @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def get_openai_multi_images_response(
         self, system_prompt: str, prompt: str, design_image: bytes, non_design_images: List[bytes]
     ) -> Union[BrandGuideline, None]:
         """
-        Streams tokens for a given query from OpenAI API using multiple images.
+        Get tokens for a given query from OpenAI API using multiple images.
         first image should always be the design
         """
         design_base64 = base64.b64encode(design_image).decode("utf-8")
