@@ -1,19 +1,21 @@
 import base64
-from typing import AsyncGenerator, List, Optional, Union
+from typing import AsyncGenerator, List, Union
 
 import openai
-from models.llm_ready_page import BrandGuideline
 from config.settings import settings
 from fastapi import Depends
-from pydantic import BaseModel
-from swarm import Swarm
+from models.llm_ready_page import BrandGuideline
+from swarm import Swarm  # type:ignore
 from tenacity import (
     retry,
     stop_after_attempt,
     wait_random_exponential,
 )
 
-MODEL = "gpt-4o"
+MODEL = "gpt-4o-mini"
+MARKDOWN_POSTFIX_PROMPT = """
+Please give the answer with Markdown format if you really need to
+"""
 
 
 class OpenAIClient:
@@ -29,7 +31,7 @@ class OpenAIClient:
         Streams tokens for a given query from OpenAI API using the SDK.
         """
         stream = await self.async_client.chat.completions.create(
-            model=model, messages=[{"role": "user", "content": f"{prompt}"}], stream=True
+            model=model, messages=[{"role": "user", "content": f"{ prompt}"}], stream=True
         )
 
         async for chunk in stream:
