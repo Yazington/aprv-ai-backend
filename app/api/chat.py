@@ -31,7 +31,9 @@ async def create_prompt(create_prompt_request: CreatePromptRequest, request: Req
 
     if not create_prompt_request.conversation_id:
         # Create a new Conversation and append the message ID
-        conversation = Conversation(id=ObjectId(), all_messages_ids=[message.id], user_id=ObjectId(request.state.user_id))
+        conversation = Conversation(
+            id=ObjectId(), all_messages_ids=[message.id], user_id=ObjectId(request.state.user_id), thumbnail_text=message.content[0:40]
+        )
         conversation = await mongo_service.engine.save(conversation)
         message.conversation_id = conversation.id
     else:
@@ -39,7 +41,7 @@ async def create_prompt(create_prompt_request: CreatePromptRequest, request: Req
         conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(create_prompt_request.conversation_id))
         if not conversation:
             raise ValueError("Conversation not found")
-
+        conversation.thumbnail_text = message.content[0:40]
         # Append the message ID to the existing conversation
         conversation.all_messages_ids.append(message.id)
         conversation = await mongo_service.engine.save(conversation)

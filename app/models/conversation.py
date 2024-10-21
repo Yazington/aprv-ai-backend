@@ -11,6 +11,7 @@ class Conversation(Model):
     contract_id: Optional[ObjectId] = None
     design_id: Optional[ObjectId] = None
     design_process_task_id: Optional[ObjectId] = None
+    thumbnail_text: Optional[str] = "thumb"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     modified_at: datetime = Field(default_factory=datetime.utcnow)
     model_config = {"indexes": lambda: [Index(asc(Conversation.user_id), asc(Conversation.created_at), asc(Conversation.modified_at))]}  # type: ignore
