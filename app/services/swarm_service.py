@@ -1,21 +1,20 @@
 import io
 import logging
+from io import BytesIO
 from typing import List, Tuple, Union
 
 import fitz  # type: ignore
-from fpdf import FPDF
+from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore
+from gmft.pdf_bindings import PyPDFium2Document  # type: ignore
 from gridfs import GridOut
-from utils.tiktoken import num_tokens_from_messages
-from models.llm_ready_page import LLMPageInferenceResource, LLMPageRequest, BrandGuideline
 from models.conversation import Conversation
+from models.llm_ready_page import BrandGuideline, LLMPageInferenceResource, LLMPageRequest
 from models.review import Review
 from models.task import Task, TaskStatus
 from odmantic import ObjectId
 from services.mongo_service import MongoService
-from services.openai_service import MODEL, OpenAIClient
-from gmft.auto import AutoTableDetector, AutoTableFormatter
-from gmft.pdf_bindings import PyPDFium2Document
-from io import BytesIO
+from services.openai_service import OpenAIClient
+from utils.tiktoken import num_tokens_from_messages
 
 detector = AutoTableDetector()
 formatter = AutoTableFormatter()
@@ -99,15 +98,18 @@ def extract_and_store_tables_as_string(tables):
 async def background_process_design(conversation_id: str, mongo_service: MongoService, openai_client: OpenAIClient):
     logging.info("Starting background task for conversation_id: %s", conversation_id)
 
+    conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
+    if conversation.design_process_task_id:
+        return
     task = await create_task(conversation_id, mongo_service)
 
+    if not conversation:
+        task.status = TaskStatus.FAILED.name
+        logging.error("task failed: no conversation for conversation_id ", str(conversation_id))
+        await mongo_service.engine.save(task)
+        return
+
     try:
-        conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
-        if not conversation:
-            task.status = TaskStatus.FAILED.name
-            logging.error("task failed: no conversation for conversation_id ", str(conversation_id))
-            await mongo_service.engine.save(task)
-            return
 
         contract_id = conversation.contract_id
         design_id = conversation.design_id

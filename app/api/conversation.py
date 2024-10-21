@@ -8,14 +8,14 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from fpdf import FPDF
 from gridfs import GridOut
-from services.swarm_service import background_process_design
 from models.conversation import Conversation
+from models.message import Message
 from models.review import Review
 from models.task import Task, TaskStatus
-from models.message import Message
 from odmantic import ObjectId
 from services.mongo_service import MongoService, mongo_service
 from services.openai_service import BrandGuideline, OpenAIClient, openai_client
+from services.swarm_service import background_process_design
 
 router = APIRouter(
     prefix="/conversations",
@@ -38,14 +38,14 @@ async def get_conversations(user_id: str = Query(...), mongo_service: MongoServi
 
 
 @router.get("/conversation")
-async def get_conversations(conversation_id: str = Query(...), mongo_service: MongoService = mongo_service):
+async def get_conversations_by_conversation_id(conversation_id: str = Query(...), mongo_service: MongoService = mongo_service):
     if not conversation_id:
         return None
     return await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
 
 
 @router.get("/conversation-messages")
-async def get_conversations(conversation_id: str = Query(...), mongo_service: MongoService = mongo_service):
+async def get_conversations_messages(conversation_id: str = Query(...), mongo_service: MongoService = mongo_service):
     if not conversation_id:
         return None
     return await mongo_service.engine.find(Message, Message.conversation_id == ObjectId(conversation_id))
@@ -100,3 +100,16 @@ async def get_process_result(task_id: str = Query(...), mongo_service: MongoServ
             status_code=500,
         )
     return await mongo_service.engine.find(Review, Review.conversation_id == task_of_conversation.conversation_id)
+
+
+@router.get("/conversation-reviews")
+async def get_conversation_reviews(conversation_id: str = Query(...), mongo_service: MongoService = mongo_service):
+    conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
+    task = None
+    if conversation.design_process_task_id:
+        task = await mongo_service.engine.find_one(Task, Task.id == conversation.design_process_task_id)
+    if not task or task.status == TaskStatus.COMPLETE:
+        return JSONResponse("Task Incomplete", status_code=400)
+    if not conversation_id:
+        return JSONResponse("Please provide a conversation_id", status_code=400)
+    return await mongo_service.engine.find(Review, Review.conversation_id == ObjectId(conversation_id))
