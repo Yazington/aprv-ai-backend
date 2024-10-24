@@ -4,6 +4,7 @@ import re
 from typing import List
 
 import numpy as np
+from tenacity import retry, stop_after_attempt, wait_random_exponential
 
 from exceptions.bad_conversation_files import DesignOrGuidelineNotFoundError
 from lightrag import LightRAG, QueryParam  # type:ignore
@@ -16,6 +17,7 @@ from services.mongo_service import MongoService
 from lightrag.utils import EmbeddingFunc
 
 
+@retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 async def search_text_and_documents(prompt: str, conversation_id: ObjectId, mongo_service: MongoService, mode="hybrid") -> str:
     user_rag_workdir = "./data"
     # print("in search text and docs")
@@ -54,6 +56,7 @@ async def search_text_and_documents(prompt: str, conversation_id: ObjectId, mong
     return response
 
 
+@retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 async def insert_to_rag(conversation_id: str, mongo_service: MongoService):
     user_rag_workdir = "./data"
 
@@ -99,6 +102,7 @@ async def insert_to_rag(conversation_id: str, mongo_service: MongoService):
         raise
 
 
+@retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 async def insert_to_rag_with_message(conversation_id: str, message: Message, mongo_service: MongoService):
     user_rag_workdir = "./data"
 
@@ -140,28 +144,5 @@ async def insert_to_rag_with_message(conversation_id: str, message: Message, mon
         raise
 
 
-# async def llm_model_func(prompt, system_prompt=None, history_messages=[], **kwargs) -> str:
-#     return await openai_complete_if_cache(
-#         "solar-mini",
-#         prompt,
-#         system_prompt=system_prompt,
-#         history_messages=history_messages,
-#         api_key=os.getenv("UPSTAGE_API_KEY"),
-#         base_url="https://api.upstage.ai/v1/solar",
-#         **kwargs,
-#     )
-
-
 async def embedding_func(texts: list[str]) -> np.ndarray:
     return await openai_embedding(texts, model="text-embedding-3-large", api_key=os.getenv("OPENAI_API_KEY"))
-
-
-# rag = LightRAG(
-#     working_dir=WORKING_DIR,
-#     llm_model_func=llm_model_func,
-#     embedding_func=EmbeddingFunc(
-#         embedding_dim=4096,
-#         max_token_size=8192,
-#         func=embedding_func
-#     )
-# )

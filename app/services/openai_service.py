@@ -19,6 +19,7 @@ from tenacity import (
     wait_random_exponential,
 )
 
+
 MODEL = "gpt-4o-mini"
 MARKDOWN_POSTFIX_PROMPT = """
 Please give the answer with Markdown format if you really need to
@@ -33,6 +34,7 @@ class OpenAIClient:
             self.async_swarm = Swarm(client=self.async_client)
             self.swarm = Swarm(client=self.client)
 
+    @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def stream_openai_llm_response(
         self, messages: List[Dict[str, str]], mongo_service: MongoService, conversation_id: str, model: str = MODEL
     ) -> AsyncGenerator[str, None]:
@@ -117,6 +119,7 @@ class OpenAIClient:
             except json.JSONDecodeError:
                 print("Failed to decode JSON arguments.")
 
+    @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def stream_openai_vision_response(self, prompt: str, image: bytes) -> AsyncGenerator[str, None]:
         """
         Streams tokens for a given query from OpenAI API using the SDK with an image.
@@ -142,6 +145,7 @@ class OpenAIClient:
             content = chunk.choices[0].delta.content or ""
             yield content
 
+    @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def stream_openai_multi_images_response(self, prompt: str, design: bytes, non_design: bytes) -> AsyncGenerator[str, None]:
         """
         Streams tokens for a given query from OpenAI API using multiple images.
