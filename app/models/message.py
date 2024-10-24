@@ -10,6 +10,7 @@ class Message(Model):
     content: str
     is_from_human: bool
     user_id: ObjectId
+    uploaded_pdf_id: Optional[ObjectId] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     modified_at: datetime = Field(default_factory=datetime.utcnow)
     model_config = {

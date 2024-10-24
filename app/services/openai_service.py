@@ -1,5 +1,6 @@
 import base64
-from typing import AsyncGenerator, List, Union
+import json
+from typing import AsyncGenerator, Dict, List, Union
 
 import httpx
 import openai
@@ -7,6 +8,9 @@ from config.logging_config import logger
 from config.settings import settings
 from fastapi import Depends
 from models.llm_ready_page import BrandGuideline
+from odmantic import ObjectId
+from services.mongo_service import MongoService
+from services.rag_service import search_text_and_documents
 from swarm import Swarm  # type:ignore
 from tenacity import (
     RetryError,
@@ -29,17 +33,89 @@ class OpenAIClient:
             self.async_swarm = Swarm(client=self.async_client)
             self.swarm = Swarm(client=self.client)
 
-    async def stream_openai_llm_response(self, prompt: str, model: str = MODEL) -> AsyncGenerator[str, None]:
-        """
-        Streams tokens for a given query from OpenAI API using the SDK.
-        """
+    async def stream_openai_llm_response(
+        self, messages: List[Dict[str, str]], mongo_service: MongoService, conversation_id: str, model: str = MODEL
+    ) -> AsyncGenerator[str, None]:
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "search_text_and_documents",
+                    "description": "Document Uploads, Guidelines and all file related that have text are already uploaded using this function. Retrieve relevant segments from documents based on a user query.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "prompt": {
+                                "type": "string",
+                                "description": "The prompt or query text for which RAG results are needed.",
+                            },
+                        },
+                        "required": ["prompt"],
+                        "additionalProperties": False,
+                    },
+                },
+            }
+        ]
+
         stream = await self.async_client.chat.completions.create(
-            model=model, messages=[{"role": "user", "content": f"{ prompt}"}], stream=True
+            model=model,
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+            stream=True,
         )
 
+        cumulative_arguments = ""
+
+        is_calling_function = False
         async for chunk in stream:
-            content = chunk.choices[0].delta.content or ""
-            yield content
+            tool_call_info = None
+            if chunk.choices[0].delta.tool_calls:
+                tool_call_info = chunk.choices[0].delta.tool_calls[0]
+
+            if tool_call_info and tool_call_info.function.name == "search_text_and_documents" or is_calling_function:
+                # Accumulate JSON arguments
+                is_calling_function = True
+                if tool_call_info:
+                    cumulative_arguments += tool_call_info.function.arguments
+                # print(cumulative_arguments)
+
+                # Check if the JSON is complete
+                if cumulative_arguments.startswith("{") and cumulative_arguments.endswith("}"):
+                    break  # Exit the loop after accumulating complete JSON
+            else:
+                content = chunk.choices[0].delta.content or ""
+                yield content
+
+        # After exiting the loop, process the complete JSON
+        if cumulative_arguments:
+            try:
+                arguments = json.loads(cumulative_arguments)
+                # print(arguments)
+                cumulative_arguments = ""  # Reset for future usage
+                # print(f"Complete Tool call arguments: {arguments}")
+
+                # Execute the RAG function with extracted arguments
+                rag_result = await search_text_and_documents(arguments["prompt"], conversation_id, mongo_service)
+                # print("rag results: ", rag_result)
+                # Prepare a message with the RAG result to send back to the LLM
+                new_messages = messages + [{"role": "system", "content": f"RAG result: {rag_result}"}]
+
+                # Restart the stream with updated messages including the RAG result
+                stream = await self.async_client.chat.completions.create(
+                    model=model,
+                    messages=new_messages,
+                    stream=True,
+                )
+
+                # Yield content from the new stream
+                async for chunk in stream:
+                    content = chunk.choices[0].delta.content or ""
+
+                    yield content
+
+            except json.JSONDecodeError:
+                print("Failed to decode JSON arguments.")
 
     async def stream_openai_vision_response(self, prompt: str, image: bytes) -> AsyncGenerator[str, None]:
         """

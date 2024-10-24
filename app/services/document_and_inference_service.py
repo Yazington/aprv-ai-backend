@@ -12,10 +12,11 @@ from models.conversation import Conversation
 from models.llm_ready_page import BrandGuideline, LLMPageInferenceResource, LLMPageRequest
 from models.review import Review
 from models.task import Task, TaskStatus
+from models.message import Message
 from odmantic import ObjectId
 from services.mongo_service import MongoService
 from services.openai_service import OpenAIClient
-from services.rag_service import insert_user_data
+from services.rag_service import insert_to_rag
 from utils.tiktoken import num_tokens_from_messages
 
 detector = AutoTableDetector()
@@ -158,7 +159,7 @@ async def background_process_design(conversation_id: str, mongo_service: MongoSe
         task.status = TaskStatus.COMPLETE.name
         task.generated_txt_id = txt_file_id
         await mongo_service.engine.save(task)
-        await insert_user_data(conversation_id, mongo_service)
+        await insert_to_rag(conversation_id, mongo_service)
     except Exception as e:
         # Update the task with a failed status if an exception occurs
         task.status = TaskStatus.FAILED.name
@@ -254,7 +255,7 @@ and you have to make sure that the design respects every single word/line/senten
     return content, tokens_used
 
 
-async def extract_tables_and_text(pdf_bytes, design_bytes, openai_client: OpenAIClient, conversation_id, mongo_service: MongoService):
+async def extract_tables_and_text_from_file(pdf_bytes):
     try:
         # opening document 2 times (one for text + images and second for tables)
         # reason is that fitz or PyPDFium2Document doesnt extract text as well as images, only images (need to investigate more)
@@ -298,3 +299,32 @@ async def extract_tables_and_text(pdf_bytes, design_bytes, openai_client: OpenAI
         raise Exception(e)
 
     return inference_result_resources
+
+
+async def guideline_to_txt(mongo_service: MongoService, file_id: ObjectId, conversation_id: str, message: Message):
+    contract_file: GridOut = mongo_service.fs.find_one({"_id": file_id})
+    if not contract_file:
+        logger.error("No contract file/null file")
+        raise Exception("No contract file/null file")
+
+        # Read the contract bytes
+    contract_bytes = contract_file.read()
+
+    llm_inference_per_page_resources = await extract_tables_and_text_from_file(contract_bytes)
+
+    if not llm_inference_per_page_resources or llm_inference_per_page_resources == []:
+        raise Exception("Failed to process pdf")
+
+    logger.info("Saving PDF content as a plain text file")
+
+    # Convert the list to a plain text string (each item on a new line)
+    text_data = "\n".join(str(resource) for resource in llm_inference_per_page_resources)
+    # print("len text data: ", len(text_data))
+    # Save the text data to a byte stream
+    text_byte_array = BytesIO(text_data.encode("utf-8"))
+
+    # Store the text byte array in GridFS using `put()`
+    txt_file_id = mongo_service.fs.put(text_byte_array, filename=f"{conversation_id}_file_upload.txt")
+    message.uploaded_pdf_id = txt_file_id
+    await mongo_service.engine.save(message)
+    # await insert_to_rag(conversation_id, message, mongo_service)

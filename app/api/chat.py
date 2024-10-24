@@ -1,5 +1,5 @@
 import json
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator, Iterable, Optional
 
 import tiktoken
 from config.logging_config import logger
@@ -13,7 +13,8 @@ from odmantic import ObjectId
 from odmantic.query import asc
 from services.mongo_service import MongoService, mongo_service
 from services.openai_service import OpenAIClient, openai_client
-from services.rag_service import get_rag_results
+from services.rag_service import search_text_and_documents
+from openai.types.chat import ChatCompletionMessageParam
 
 router = APIRouter(
     prefix="/chat",
@@ -68,7 +69,7 @@ async def create_prompt(create_prompt_request: CreatePromptRequest, request: Req
 
 #     full_prompt = prompt_message.content  # Start with the current message content
 
-#     rag_results = get_rag_results(full_prompt)
+#     rag_results = search_text_and_documents(full_prompt)
 
 #     if prompt_message.conversation_id:
 #         past_messages = await mongo_service.engine.find(
@@ -136,45 +137,40 @@ async def get_prompt_model_response(
     user_prompt = prompt_message.content
     user_prompt_tokens = count_tokens(user_prompt)
 
-    try:
-        rag_results = await get_rag_results(
-            user_prompt, prompt_message.conversation_id, mongo_service
-        )  # TODO: change this to be tool call instead
-    except Exception as e:
-        logger.error(e)
-        if type(e) is DesignOrGuidelineNotFoundError:
-            return JSONResponse("Design or Guideline not found", 404)
-        return JSONResponse("Failed to get rag results", 500)
-
-    # print("results: ", rag_results)
-    rag_results_text = rag_results
-    rag_results_tokens = count_tokens(rag_results_text)
-
     # Retrieve and tokenize message history
     history_tokens, history_text = await retrieve_and_tokenize_message_history(mongo_service, prompt_message)
 
     # Calculate total tokens and apply truncation if necessary
-    user_prompt, rag_results_text, history_text = truncate_all(
-        user_prompt, user_prompt_tokens, rag_results_text, rag_results_tokens, history_tokens, history_text
-    )
+    user_prompt, history_text = truncate_all(user_prompt, user_prompt_tokens, history_tokens, history_text)
 
-    # Construct the final prompt
-    full_prompt = ""
+    # Construct the final message list
+    messages: Iterable[ChatCompletionMessageParam] = []
     if history_text:
-        full_prompt += f"{history_text}\n\n"
-    if rag_results_text:
-        full_prompt += f"{rag_results_text}\n\n"
-    full_prompt += user_prompt  # User prompt at the end
-    print(full_prompt, sep="")
+        messages.append(
+            {
+                "role": "system",
+                "content": """
+You are a brand guideline helper and reviewer, at your disposal, there are tools you can use since there will be a lot of
+tools you can use. A user can upload files and you must help him. He is a brand licensee or a brand licensor. 
+You will give answers that are precise and direct. You need to be sure of your answers. 
+Since a user is uploading a design and testing it against a guideline, we add the review of that design within the document that
+will be uploaded to you.
+""",
+            }
+        )
+        messages.append({"role": "system", "content": history_text})
+    messages.append({"role": "user", "content": user_prompt})
+    # print(history_text)
 
     # Generate the LLM response
     async def event_generator() -> AsyncGenerator[str, Optional[str]]:
         full_response = ""
         full_response_message = Message(id=ObjectId(), content=full_response, is_from_human=False, user_id=ObjectId(user_id))
 
-        async for chunk in openai_client.stream_openai_llm_response(full_prompt):
+        async for chunk in openai_client.stream_openai_llm_response(messages, mongo_service, prompt_message.conversation_id):
             if chunk:
                 full_response += chunk
+                # print(chunk, end="")
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
 
         full_response_message.content = full_response
@@ -188,8 +184,8 @@ async def get_prompt_model_response(
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
-def truncate_all(user_prompt, user_prompt_tokens, rag_results_text, rag_results_tokens, history_tokens, history_text):
-    total_prompt_tokens = user_prompt_tokens + rag_results_tokens + history_tokens
+def truncate_all(user_prompt, user_prompt_tokens, history_tokens, history_text):
+    total_prompt_tokens = user_prompt_tokens + history_tokens
     tokens_needed = total_prompt_tokens - PROMPT_TOKENS
 
     if tokens_needed > 0:
@@ -198,19 +194,13 @@ def truncate_all(user_prompt, user_prompt_tokens, rag_results_text, rag_results_
             tokens_to_remove = min(tokens_needed, history_tokens)
             history_text = truncate_text(history_text, history_tokens - tokens_to_remove)
             history_tokens = count_tokens(history_text)
-            tokens_needed = total_prompt_tokens - (user_prompt_tokens + rag_results_tokens + history_tokens)
-        # Truncate RAG results next
-        if tokens_needed > 0 and rag_results_tokens > 0:
-            tokens_to_remove = min(tokens_needed, rag_results_tokens)
-            rag_results_text = truncate_text(rag_results_text, rag_results_tokens - tokens_to_remove)
-            rag_results_tokens = count_tokens(rag_results_text)
-            tokens_needed = total_prompt_tokens - (user_prompt_tokens + rag_results_tokens + history_tokens)
+            tokens_needed = total_prompt_tokens - (user_prompt_tokens + history_tokens)
         # Truncate user prompt as a last resort
         if tokens_needed > 0:
             tokens_to_remove = min(tokens_needed, user_prompt_tokens - 1)  # Keep at least 1 token
             user_prompt = truncate_text(user_prompt, user_prompt_tokens - tokens_to_remove)
             user_prompt_tokens = count_tokens(user_prompt)
-    return user_prompt, rag_results_text, history_text
+    return user_prompt, history_text
 
 
 async def retrieve_and_tokenize_message_history(mongo_service, prompt_message):
