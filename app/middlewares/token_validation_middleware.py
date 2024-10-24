@@ -1,5 +1,5 @@
 import datetime
-import logging
+from config.logging_config import logger
 from typing import Union
 
 import jwt
@@ -54,13 +54,13 @@ class TokenValidationMiddleware(BaseHTTPMiddleware):
             request.state.user_id = user_id
 
             # Proceed if token is valid
-            logging.info(f"Token valid for user: {email}")
+            logger.info(f"Token valid for user: {email}")
 
         except jwt.ExpiredSignatureError:
-            logging.error(f"Expired token for {email}")
+            logger.error(f"Expired token for {email}")
             return self._unauthorized_response()
         except jwt.InvalidTokenError:
-            logging.error(f"Invalid token {token}")
+            logger.error(f"Invalid token {token}")
             return self._unauthorized_response()
 
         # Call the next middleware or route

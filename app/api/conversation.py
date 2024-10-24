@@ -1,32 +1,18 @@
-import io
-import logging
-from typing import Union
-
-import fitz  # type: ignore
 from fastapi import APIRouter, BackgroundTasks, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from fpdf import FPDF
-from gridfs import GridOut
 from models.conversation import Conversation
 from models.message import Message
 from models.review import Review
 from models.task import Task, TaskStatus
 from odmantic import ObjectId
+from services.document_and_inference_service import background_process_design
 from services.mongo_service import MongoService, mongo_service
-from services.openai_service import BrandGuideline, OpenAIClient, openai_client
-from services.swarm_service import background_process_design
+from services.openai_service import OpenAIClient, openai_client
 
 router = APIRouter(
     prefix="/conversations",
     tags=["Conversation"],
-)
-
-
-logging.basicConfig(
-    level=logging.INFO,  # or DEBUG for more detailed logs
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler()],  # Logs will be printed to console
 )
 
 

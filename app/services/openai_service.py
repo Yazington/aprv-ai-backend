@@ -1,12 +1,15 @@
 import base64
 from typing import AsyncGenerator, List, Union
 
+import httpx
 import openai
+from config.logging_config import logger
 from config.settings import settings
 from fastapi import Depends
 from models.llm_ready_page import BrandGuideline
 from swarm import Swarm  # type:ignore
 from tenacity import (
+    RetryError,
     retry,
     stop_after_attempt,
     wait_random_exponential,
@@ -74,16 +77,21 @@ class OpenAIClient:
         design_url_obj = {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{design_base64}"}}
         non_design_url_obj = {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{non_design_base64}"}}
 
-        stream = await self.async_client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [design_url_obj, non_design_url_obj, {"type": "text", "text": prompt}],
-                }
-            ],
-            stream=True,
-        )
+        try:
+            stream = await self.async_client.chat.completions.create(
+                model=MODEL,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [design_url_obj, non_design_url_obj, {"type": "text", "text": prompt}],
+                    }
+                ],
+                stream=True,
+            )
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error occurred: {e.response.status_code} {e.response.text}")
+        except Exception as e:
+            logger.error(f"An error occurred: {e}")
 
         async for chunk in stream:
             content = chunk.choices[0].delta.content or ""
@@ -95,40 +103,54 @@ class OpenAIClient:
     ) -> Union[BrandGuideline, None]:
         """
         Get tokens for a given query from OpenAI API using multiple images.
-        first image should always be the design
+        first image should always be the design.
         """
-        design_base64 = base64.b64encode(design_image).decode("utf-8")
+        try:
+            # Convert design image to base64
+            design_base64 = base64.b64encode(design_image).decode("utf-8")
+            design_url_obj = {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{design_base64}"}}
 
-        non_design_images_objects = []
-        for non_design_image in non_design_images:
-            non_design_base64 = base64.b64encode(non_design_image).decode("utf-8")
-            non_design_url_obj = {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{non_design_base64}"}}
-            non_design_images_objects.append(non_design_url_obj)
+            # Convert non-design images to base64
+            non_design_images_objects = []
+            for non_design_image in non_design_images:
+                non_design_base64 = base64.b64encode(non_design_image).decode("utf-8")
+                non_design_url_obj = {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{non_design_base64}"}}
+                non_design_images_objects.append(non_design_url_obj)
 
-        design_url_obj = {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{design_base64}"}}
+            # Make the API call
+            llm_response = self.client.beta.chat.completions.parse(
+                model=MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": system_prompt,
+                            }
+                        ],
+                    },
+                    {
+                        "role": "user",
+                        "content": [design_url_obj, *non_design_images_objects, {"type": "text", "text": prompt}],
+                    },
+                ],
+                response_format=BrandGuideline,
+            )
 
-        llm_response = self.client.beta.chat.completions.parse(
-            model=MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": system_prompt,
-                        }
-                    ],
-                },
-                {
-                    "role": "user",
-                    "content": [design_url_obj, *non_design_images_objects, {"type": "text", "text": prompt}],
-                },
-            ],
-            response_format=BrandGuideline,
-        )
-        if not llm_response.choices[0].message.parsed:
-            return None
-        return llm_response.choices[0].message.parsed
+            # Check if the response contains parsed content
+            if not llm_response.choices[0].message.parsed:
+                logger.warning("OpenAI API response has no parsed content.")
+                return None
+
+            return llm_response.choices[0].message.parsed
+
+        except RetryError as e:
+            logger.error(f"Task failed after retries: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Error occurred during OpenAI API call: {str(e)}. Prompt: {prompt}, System Prompt: {system_prompt}")
+            raise
 
 
 def get_openai_client():

@@ -1,4 +1,3 @@
-import logging
 from typing import Optional
 
 from fastapi import APIRouter, Query, Request, UploadFile
@@ -16,7 +15,7 @@ router = APIRouter(
 async def upload_image(
     file: UploadFile, request: Request, conversation_id: Optional[str] = Query(...), mongo_service: MongoService = mongo_service
 ):
-    print(conversation_id)
+    # print(conversation_id)
     id = ObjectId()
     file_id = mongo_service.fs.put(await file.read(), filename=file.filename, id=id)
 
@@ -33,7 +32,7 @@ async def upload_image(
     # If conversation_id is provided, update the existing conversation
     else:
         conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
-        print(conversation)
+        # print(conversation)
         if conversation:
             conversation.design_id = ObjectId(file_id)
             # Append the new file_id to the existing file_ids list
@@ -51,11 +50,9 @@ async def upload_image(
 async def upload_pdf(
     file: UploadFile, request: Request, conversation_id: Optional[str] = Query(...), mongo_service: MongoService = mongo_service
 ):
-    print(conversation_id)
     id = ObjectId()
     file_id = mongo_service.fs.put(await file.read(), filename=file.filename, id=id)
     if not conversation_id or conversation_id == "null" or conversation_id == "undefined":
-        print("here")
         new_conversation = Conversation(id=ObjectId(), user_id=ObjectId(request.state.user_id), contract_id=ObjectId(file_id))
         conversation = await mongo_service.engine.save(new_conversation)
         return {
@@ -65,7 +62,6 @@ async def upload_pdf(
         }
     else:
         conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
-        print(conversation)
         if conversation:
             conversation.contract_id = ObjectId(file_id)
             await mongo_service.engine.save(conversation)
