@@ -2,11 +2,12 @@ import json
 from typing import AsyncGenerator, Iterable, Optional
 
 import tiktoken
+from models.conversation import Conversation
+from utils.tiktoken import count_tokens, truncate_all
 from config.logging_config import logger
 from exceptions.bad_conversation_files import DesignOrGuidelineNotFoundError
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
-from models.conversation import Conversation
 from models.create_prompt_request import CreatePromptRequest
 from models.message import Message
 from odmantic import ObjectId
@@ -102,24 +103,20 @@ async def create_prompt(create_prompt_request: CreatePromptRequest, request: Req
 
 #     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
-MAX_TOKENS = 128000  # Max tokens for the model's context window
-RESPONSE_TOKENS = 16384  # Tokens reserved for the response
-PROMPT_TOKENS = MAX_TOKENS - RESPONSE_TOKENS  # Tokens available for the prompt
 
-
-def count_tokens(text: str, model: str = "gpt-3.5-turbo") -> int:
-    encoding = tiktoken.encoding_for_model(model)
-    return len(encoding.encode(text))
-
-
-def truncate_text(text: str, max_tokens: int, model: str = "gpt-3.5-turbo") -> str:
-    encoding = tiktoken.encoding_for_model(model)
-    tokens = encoding.encode(text)
-    if len(tokens) <= max_tokens:
-        return text
-    else:
-        truncated_tokens = tokens[-max_tokens:]  # Keep the last tokens
-        return encoding.decode(truncated_tokens)
+async def retrieve_and_tokenize_message_history(mongo_service, prompt_message):
+    history_tokens = 0
+    history_text = ""
+    if prompt_message.conversation_id:
+        past_messages = await mongo_service.engine.find(
+            Message,
+            Message.conversation_id == prompt_message.conversation_id,
+            sort=asc(Message.created_at),
+        )
+        past_messages = [msg for msg in past_messages if msg.id != prompt_message.id]
+        history_text = "\n".join(msg.content for msg in past_messages)
+        history_tokens = count_tokens(history_text)
+    return history_tokens, history_text
 
 
 @router.get("/generate/{message_id}")
@@ -146,6 +143,7 @@ async def get_prompt_model_response(
     # Construct the final message list
     messages: Iterable[ChatCompletionMessageParam] = []
     if history_text:
+        messages.append({"role": "system", "content": history_text})
         messages.append(
             {
                 "role": "system",
@@ -153,12 +151,11 @@ async def get_prompt_model_response(
 You are a brand guideline helper and reviewer, at your disposal, there are tools you can use since there will be a lot of
 tools you can use. A user can upload files and you must help him. He is a brand licensee or a brand licensor. 
 You will give answers that are precise and direct. You need to be sure of your answers. 
-Since a user is uploading a design and testing it against a guideline, we add the review of that design within the document that
-will be uploaded to you.
+Since a user is uploading a design and testing it against a guideline, we add the review of that design within the document
+for each page!
 """,
             }
         )
-        messages.append({"role": "system", "content": history_text})
     messages.append({"role": "user", "content": user_prompt})
     # print(history_text)
 
@@ -182,37 +179,3 @@ will be uploaded to you.
         yield f"data: {json.dumps({'content': '[DONE-STREAMING-APRV-AI]'})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-
-def truncate_all(user_prompt, user_prompt_tokens, history_tokens, history_text):
-    total_prompt_tokens = user_prompt_tokens + history_tokens
-    tokens_needed = total_prompt_tokens - PROMPT_TOKENS
-
-    if tokens_needed > 0:
-        # Truncate history first
-        if history_tokens > 0:
-            tokens_to_remove = min(tokens_needed, history_tokens)
-            history_text = truncate_text(history_text, history_tokens - tokens_to_remove)
-            history_tokens = count_tokens(history_text)
-            tokens_needed = total_prompt_tokens - (user_prompt_tokens + history_tokens)
-        # Truncate user prompt as a last resort
-        if tokens_needed > 0:
-            tokens_to_remove = min(tokens_needed, user_prompt_tokens - 1)  # Keep at least 1 token
-            user_prompt = truncate_text(user_prompt, user_prompt_tokens - tokens_to_remove)
-            user_prompt_tokens = count_tokens(user_prompt)
-    return user_prompt, history_text
-
-
-async def retrieve_and_tokenize_message_history(mongo_service, prompt_message):
-    history_tokens = 0
-    history_text = ""
-    if prompt_message.conversation_id:
-        past_messages = await mongo_service.engine.find(
-            Message,
-            Message.conversation_id == prompt_message.conversation_id,
-            sort=asc(Message.created_at),
-        )
-        past_messages = [msg for msg in past_messages if msg.id != prompt_message.id]
-        history_text = "\n".join(msg.content for msg in past_messages)
-        history_tokens = count_tokens(history_text)
-    return history_tokens, history_text
