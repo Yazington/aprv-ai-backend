@@ -3,14 +3,17 @@ import os
 import re
 from typing import List
 
+import numpy as np
+
 from exceptions.bad_conversation_files import DesignOrGuidelineNotFoundError
 from lightrag import LightRAG, QueryParam  # type:ignore
-from lightrag.llm import gpt_4o_complete, gpt_4o_mini_complete  # type:ignore
+from lightrag.llm import gpt_4o_complete, gpt_4o_mini_complete, openai_complete_if_cache, openai_embedding  # type:ignore
 from models.conversation import Conversation
 from models.task import Task
 from models.message import Message
 from odmantic import ObjectId
 from services.mongo_service import MongoService
+from lightrag.utils import EmbeddingFunc
 
 
 async def search_text_and_documents(prompt: str, conversation_id: ObjectId, mongo_service: MongoService, mode="hybrid") -> str:
@@ -38,6 +41,7 @@ async def search_text_and_documents(prompt: str, conversation_id: ObjectId, mong
     rag = LightRAG(
         working_dir=conversation_dir,
         llm_model_func=gpt_4o_mini_complete,  # Use gpt_4o_mini_complete LLM model
+        embedding_func=EmbeddingFunc(embedding_dim=3072, max_token_size=8192, func=embedding_func),
     )
 
     # Run the blocking `rag.query` in a separate thread and wait for it to finish
@@ -83,6 +87,7 @@ async def insert_to_rag(conversation_id: str, mongo_service: MongoService):
     rag = LightRAG(
         working_dir=user_dir,
         llm_model_func=gpt_4o_mini_complete,
+        embedding_func=EmbeddingFunc(embedding_dim=3072, max_token_size=8192, func=embedding_func),
     )
 
     # Run the blocking `rag.insert` in a separate thread and wait for it to finish
@@ -123,6 +128,7 @@ async def insert_to_rag_with_message(conversation_id: str, message: Message, mon
     rag = LightRAG(
         working_dir=user_dir,
         llm_model_func=gpt_4o_mini_complete,
+        embedding_func=EmbeddingFunc(embedding_dim=3072, max_token_size=8192, func=embedding_func),
     )
 
     # Run the blocking `rag.insert` in a separate thread and wait for it to finish
@@ -132,3 +138,30 @@ async def insert_to_rag_with_message(conversation_id: str, message: Message, mon
     except Exception as e:
         print(f"Error during data insertion for user {conversation_id}: {e}")
         raise
+
+
+# async def llm_model_func(prompt, system_prompt=None, history_messages=[], **kwargs) -> str:
+#     return await openai_complete_if_cache(
+#         "solar-mini",
+#         prompt,
+#         system_prompt=system_prompt,
+#         history_messages=history_messages,
+#         api_key=os.getenv("UPSTAGE_API_KEY"),
+#         base_url="https://api.upstage.ai/v1/solar",
+#         **kwargs,
+#     )
+
+
+async def embedding_func(texts: list[str]) -> np.ndarray:
+    return await openai_embedding(texts, model="text-embedding-3-large", api_key=os.getenv("OPENAI_API_KEY"))
+
+
+# rag = LightRAG(
+#     working_dir=WORKING_DIR,
+#     llm_model_func=llm_model_func,
+#     embedding_func=EmbeddingFunc(
+#         embedding_dim=4096,
+#         max_token_size=8192,
+#         func=embedding_func
+#     )
+# )
