@@ -2,6 +2,7 @@ import datetime
 from typing import Optional
 
 import jwt
+from config.logging_config import logger
 from config.settings import settings
 
 # from authlib.integrations.starlette_client import OAuth
@@ -52,7 +53,7 @@ async def auth_google(auth_request: AuthRequest, mongo_service: MongoService = m
     email = idinfo.get("email")
     if not idinfo.get("email_verified"):
         raise HTTPException(status_code=401, detail="Email not verified by Google")
-
+    logger.info(email)
     google_auth_info_instance = GoogleAuthInfo(**idinfo)
 
     # Check if the user already exists in the database

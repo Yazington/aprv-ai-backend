@@ -10,10 +10,11 @@ from gmft.pdf_bindings import PyPDFium2Document  # type: ignore
 from gridfs import GridOut
 from models.conversation import Conversation
 from models.llm_ready_page import BrandGuideline, LLMPageInferenceResource, LLMPageRequest
+from models.message import Message
 from models.review import Review
 from models.task import Task, TaskStatus
-from models.message import Message
 from odmantic import ObjectId
+from pypdf import PdfWriter  # type: ignore
 from services.mongo_service import MongoService
 from services.openai_service import OpenAIClient
 from services.rag_service import insert_to_rag
@@ -123,7 +124,7 @@ async def background_process_design(conversation_id: str, mongo_service: MongoSe
 
     try:
 
-        contract_id = conversation.contract_id
+        contract_id = conversation.guidelines_id
         design_id = conversation.design_id
 
         if not contract_id or not design_id:
@@ -167,11 +168,11 @@ async def background_process_design(conversation_id: str, mongo_service: MongoSe
         await mongo_service.engine.save(task)
 
 
-def get_existing_files_as_bytes(mongo_service: MongoService, contract_id, design_id):
-    contract_file: GridOut = mongo_service.fs.find_one({"_id": contract_id})
+def get_existing_files_as_bytes(mongo_service: MongoService, guidelines_id, design_id):
+    guidelines_file: GridOut = mongo_service.fs.find_one({"_id": guidelines_id})
     design_file: GridOut = mongo_service.fs.find_one({"_id": design_id})
 
-    if not contract_file:
+    if not guidelines_file:
         logger.error("No contract file/null file")
         raise Exception("No contract file/null file")
 
@@ -180,7 +181,7 @@ def get_existing_files_as_bytes(mongo_service: MongoService, contract_id, design
         raise Exception("No design file/null file")
 
         # Read the contract bytes
-    contract_bytes = contract_file.read()
+    contract_bytes = guidelines_file.read()
 
     # Read the design bytes
     design_bytes = design_file.read()
@@ -223,18 +224,21 @@ async def compare_design_against_page(
 ) -> Tuple[Union[BrandGuideline, None], int]:
     # Prepare the prompt (this is a placeholder, you can replace it with your actual prompt)
     prompt = f"""
-THE FIRST IMAGE IS THE DESIGN AND THE OTHER IMAGES ARE PART OF A BRAND LICENSING BRAND GUIDELINE PAGE!
-Design GIVEN TO YOU: first image.
-Brand Licensing Brand Guideline Images GIVEN TO YOU: all images that are not the first image.
+    The first image is the design. All other images are part of a brand licensing guideline.
 
-Brand Licensing Brand Guideline Page Text GIVEN TO YOU:
-{'None' if text=='' else text}
-Brand Licensing Brand Guideline Page Tables GIVEN TO YOU:
-{'None' if tables == [] or not tables else '\n'.join(tables)}
+    Design Image: the first image.
+    Brand Guideline Images: all images after the first one.
 
-FIRST, PLEASE READ AND ANALYZE WHAT IS GIVEN TO YOU. THEN AND ONLY THEN YOU MAY COMPARE WHAT YOU HAVE READ AGAINST THE DESIGN/FIRST IMAGE!
-1. review_description (string): for each part of what is GIVEN TO YOU, provide a description of wether or not the design respects them.
-3. guideline_achieved(True or False or None): provide a score between False and True indicating the suitability of the design for the page content. Comparing to what was GIVEN TO YOU, evaluate whether the design is suitable. If what is GIVEN TO YOU is not applicable return None 
+    Brand Guideline Text: 
+    {'None' if text == '' else text}
+
+    Brand Guideline Tables: 
+    {'None' if not tables else '\n'.join(tables)}
+
+    Please follow these steps:
+    1. Check if the Brand Guideline Text is related to brand guidelines. If it’s not, set "guideline_achieved" to None and stop. If it is, continue.
+    2. review_description (string): For each part of the Brand Guideline (text, images, tables), describe if the design aligns with it.
+    3. guideline_achieved (True, False, or None): Rate how suitable the design is based on the Brand Guideline. If the Brand Guideline isn’t relevant, return None.
     """
 
     content: Union[BrandGuideline | None] = await openai_client.get_openai_multi_images_response(
@@ -301,7 +305,9 @@ async def extract_tables_and_text_from_file(pdf_bytes):
     return inference_result_resources
 
 
-async def guideline_to_txt(mongo_service: MongoService, file_id: ObjectId, conversation_id: str, message: Message):
+async def guideline_to_txt_and_save_message_with_new_file(
+    mongo_service: MongoService, file_id: ObjectId, conversation_id: str, message: Message
+):
     contract_file: GridOut = mongo_service.fs.find_one({"_id": file_id})
     if not contract_file:
         logger.error("No contract file/null file")

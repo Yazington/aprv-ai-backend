@@ -8,7 +8,7 @@ from odmantic.query import asc
 class Conversation(Model):
     all_messages_ids: List[ObjectId] = Field(default_factory=list)
     user_id: ObjectId
-    contract_id: Optional[ObjectId] = None
+    guidelines_id: Optional[ObjectId] = None
     design_id: Optional[ObjectId] = None
     design_process_task_id: Optional[ObjectId] = None
     thumbnail_text: Optional[str] = "thumb"

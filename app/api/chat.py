@@ -1,21 +1,20 @@
 import json
-from typing import AsyncGenerator, Iterable, Optional
+from typing import AsyncGenerator, Optional
 
-import tiktoken
-from models.conversation import Conversation
-from utils.tiktoken import count_tokens, truncate_all
 from config.logging_config import logger
 from exceptions.bad_conversation_files import DesignOrGuidelineNotFoundError
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+from models.conversation import Conversation
 from models.create_prompt_request import CreatePromptRequest
 from models.message import Message
 from odmantic import ObjectId
 from odmantic.query import asc
+from openai.types.chat import ChatCompletionMessageParam
 from services.mongo_service import MongoService, mongo_service
 from services.openai_service import OpenAIClient, openai_client
 from services.rag_service import search_text_and_documents
-from openai.types.chat import ChatCompletionMessageParam
+from utils.tiktoken import count_tokens, truncate_all
 
 router = APIRouter(
     prefix="/chat",
@@ -56,54 +55,6 @@ async def create_prompt(create_prompt_request: CreatePromptRequest, request: Req
     return {"prompt": message.content, "message_id": str(message.id), "conversation_id": str(conversation.id)}
 
 
-# @router.get("/generate/{message_id}")
-# async def get_prompt_model_response(
-#     message_id: str,
-#     user_id: str = Query(...),  # User ID as a query parameter
-#     mongo_service: MongoService = mongo_service,
-#     openai_client: OpenAIClient = openai_client,
-# ):
-#     # get user prompt and concatenate past messages to the current prompt
-#     prompt_message = await mongo_service.engine.find_one(Message, Message.id == ObjectId(message_id))
-#     if prompt_message is None:
-#         raise HTTPException(status_code=404, detail=f"Failed to generate response as initial prompt was not found: {message_id}")
-
-#     full_prompt = prompt_message.content  # Start with the current message content
-
-#     rag_results = search_text_and_documents(full_prompt)
-
-#     if prompt_message.conversation_id:
-#         past_messages = await mongo_service.engine.find(
-#             Message,
-#             Message.conversation_id == prompt_message.conversation_id,
-#             sort=asc(Message.created_at),  # Ensure messages are sorted by time
-#             # limit=10,  # Limit the number of past messages to avoid overloading the prompt
-#         )
-#         history = "\n".join(msg.content for msg in past_messages)
-#         full_prompt = f"{history}\n\n{full_prompt}"  # Add history before the current message
-
-#     # create LLM response from user prompt and all previous messages
-#     async def event_generator() -> AsyncGenerator[str, Optional[str]]:
-#         full_response = ""
-#         full_response_message = Message(id=ObjectId(), content=full_response, is_from_human=False, user_id=ObjectId(user_id))
-
-#         # Await the streaming operation
-#         async for chunk in openai_client.stream_openai_llm_response(full_prompt): # TODO: reread documentation to use not all content in one shot but by role adding truncation strategy
-#             if chunk:
-#                 full_response += chunk
-#                 yield f"data: {json.dumps({'content': chunk})}\n\n"
-
-#         full_response_message.content = full_response
-#         full_response_message.conversation_id = prompt_message.conversation_id
-#         message = await mongo_service.engine.save(full_response_message)
-#         conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(prompt_message.conversation_id))
-#         conversation.all_messages_ids.append(message.id)
-#         await mongo_service.engine.save(conversation)
-#         yield f"data: {json.dumps({'content': '[DONE-STREAMING-APRV-AI]'})}\n\n"
-
-#     return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-
 async def retrieve_and_tokenize_message_history(mongo_service, prompt_message):
     history_tokens = 0
     history_text = ""
@@ -141,9 +92,8 @@ async def get_prompt_model_response(
     user_prompt, history_text = truncate_all(user_prompt, user_prompt_tokens, history_tokens, history_text)
 
     # Construct the final message list
-    messages: Iterable[ChatCompletionMessageParam] = []
+    messages = []
     if history_text:
-        messages.append({"role": "system", "content": history_text})
         messages.append(
             {
                 "role": "system",
@@ -156,6 +106,8 @@ for each page!
 """,
             }
         )
+        messages.append({"role": "system", "content": history_text})
+
     messages.append({"role": "user", "content": user_prompt})
     # print(history_text)
 

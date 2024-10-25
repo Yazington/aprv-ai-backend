@@ -4,21 +4,20 @@ import re
 from typing import List
 
 import numpy as np
-from tenacity import retry, stop_after_attempt, wait_random_exponential
-
 from exceptions.bad_conversation_files import DesignOrGuidelineNotFoundError
 from lightrag import LightRAG, QueryParam  # type:ignore
 from lightrag.llm import gpt_4o_complete, gpt_4o_mini_complete, openai_complete_if_cache, openai_embedding  # type:ignore
+from lightrag.utils import EmbeddingFunc  # type:ignore
 from models.conversation import Conversation
-from models.task import Task
 from models.message import Message
+from models.task import Task
 from odmantic import ObjectId
 from services.mongo_service import MongoService
-from lightrag.utils import EmbeddingFunc
+from tenacity import retry, stop_after_attempt, wait_random_exponential  # type:ignore
 
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
-async def search_text_and_documents(prompt: str, conversation_id: ObjectId, mongo_service: MongoService, mode="hybrid") -> str:
+async def search_text_and_documents(prompt: str, conversation_id: ObjectId, mongo_service: MongoService, mode="global") -> str:
     user_rag_workdir = "./data"
     # print("in search text and docs")
     # print(conversation_id)
@@ -52,7 +51,7 @@ async def search_text_and_documents(prompt: str, conversation_id: ObjectId, mong
     except Exception as e:
         print(f"Error during query: {e}")
         return ""
-
+    # print(response)
     return response
 
 

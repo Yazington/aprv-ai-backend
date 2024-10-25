@@ -49,7 +49,7 @@ class OpenAIClient:
                         "properties": {
                             "prompt": {
                                 "type": "string",
-                                "description": "The prompt or query text for which RAG results are needed.",
+                                "description": "The prompt or query text for which RAG results are needed. If user needs to know what is in it, summarize it",
                             },
                         },
                         "required": ["prompt"],
@@ -96,7 +96,7 @@ class OpenAIClient:
                 # print(arguments)
                 cumulative_arguments = ""  # Reset for future usage
                 # print(f"Complete Tool call arguments: {arguments}")
-
+                logger.info("llm tool prompt: " + arguments["prompt"])
                 # Execute the RAG function with extracted arguments
                 rag_result = await search_text_and_documents(arguments["prompt"], conversation_id, mongo_service)
                 # print("rag results: ", rag_result)

@@ -30,4 +30,9 @@ class LLMPageInferenceResource(BaseModel):
         if self.inference_response:
             infer_response = self.inference_response.review_description
             review_achieved = self.inference_response.guideline_achieved
-        return f"""\npage: {self.page_number}\ntext:{self.given_text}\ntables:{tables_text}\nreview of page against design description:{infer_response}\ndesign respects guideline:{review_achieved}\n"""
+        return f"""
+        \npage number: {self.page_number}\n
+        text of {self.page_number}:{self.given_text}\n
+        tables of {self.page_number}:{tables_text}\n
+        RESULT OF DESIGN AGAINST THE TEXT OF PAGE {self.page_number}:{infer_response}\n
+        RESULT OF WETHER OR NOT DESIGN RESPECTS PAGE {self.page_number}:{review_achieved}\n"""
