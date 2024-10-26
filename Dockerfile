@@ -26,7 +26,7 @@ RUN pip install -r requirements.txt
 # Install additional packages from Git and other specifications
 RUN pip install --no-cache-dir \
     git+https://github.com/openai/swarm.git \
-    git+https://github.com/yazington/LightRAG.git@feature/other-storage
+    git+https://github.com/KHUDS/LightRAG.git
 
 
 # Install gunicorn
