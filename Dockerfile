@@ -21,15 +21,15 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Install additional packages from Git and other specifications
-RUN pip install --no-cache-dir \
+RUN pip install \
     git+https://github.com/openai/swarm.git \
     git+https://github.com/HKUDS/LightRAG.git
 
 # Install gunicorn
-RUN pip install --no-cache-dir gunicorn
+RUN pip install gunicorn
 
 # Copy the 'app' directory into the container's '/app' directory
 COPY ./app ./app
