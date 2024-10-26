@@ -1,6 +1,11 @@
 # Use a slim Python base image for your environment
 FROM python:3.11-slim
 
+ENV OPENAI_API_KEY=$OPENAI_API_KEY
+ENV APRV_AI_API_KEY=$APRV_AI_API_KEY
+ENV GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+ENV MONGO_URL=$MONGO_URL
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     python3-pip \
