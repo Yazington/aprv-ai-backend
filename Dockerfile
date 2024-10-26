@@ -22,11 +22,12 @@ COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-
+RUN pip install --no-cache-dir -e ./LightRAG
 # Install additional packages from Git and other specifications
 RUN pip install --no-cache-dir \
     git+https://github.com/openai/swarm.git \
-    git+https://github.com/HKUDS/LightRAG.git
+    # git+https://github.com/HKUDS/LightRAG.git
+
 
 # Install gunicorn
 RUN pip install --no-cache-dir gunicorn
