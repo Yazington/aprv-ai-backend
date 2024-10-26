@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 
-load_dotenv()
+load_dotenv(".env.local")
 
 
 class Settings(BaseSettings):
@@ -18,3 +18,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()  # type: ignore
+# print(settings)

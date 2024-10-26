@@ -93,12 +93,13 @@ async def insert_to_rag(conversation_id: str, mongo_service: MongoService):
     )
 
     # Run the blocking `rag.insert` in a separate thread and wait for it to finish
-    try:
-        await asyncio.to_thread(rag.insert, processed_guideline_document_txt)
-        print(f"Data inserted successfully for user {conversation_id}.")
-    except Exception as e:
-        print(f"Error during data insertion for user {conversation_id}: {e}")
-        raise
+    rag.ainsert(processed_guideline_document_txt)
+    # try:
+    #     await asyncio.to_thread(rag.insert, processed_guideline_document_txt)
+    #     print(f"Data inserted successfully for user {conversation_id}.")
+    # except Exception as e:
+    #     print(f"Error during data insertion for user {conversation_id}: {e}")
+    #     raise e
 
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
@@ -135,12 +136,13 @@ async def insert_to_rag_with_message(conversation_id: str, message: Message, mon
     )
 
     # Run the blocking `rag.insert` in a separate thread and wait for it to finish
-    try:
-        await asyncio.to_thread(rag.insert, processed_guideline_document_txt)
-        print(f"Data inserted successfully for user {conversation_id}.")
-    except Exception as e:
-        print(f"Error during data insertion for user {conversation_id}: {e}")
-        raise
+    await rag.ainsert(processed_guideline_document_txt)
+    # try:
+    #     await asyncio.to_thread(rag.insert, processed_guideline_document_txt)
+    #     print(f"Data inserted successfully for user {conversation_id}.")
+    # except Exception as e:
+    #     print(f"Error during data insertion for user {conversation_id}: {e}")
+    #     raise e
 
 
 async def embedding_func(texts: list[str]) -> np.ndarray:
