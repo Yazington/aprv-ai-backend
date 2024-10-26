@@ -1,19 +1,15 @@
 import json
 from typing import AsyncGenerator, Optional
 
-from config.logging_config import logger
-from exceptions.bad_conversation_files import DesignOrGuidelineNotFoundError
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from models.conversation import Conversation
 from models.create_prompt_request import CreatePromptRequest
 from models.message import Message
 from odmantic import ObjectId
 from odmantic.query import asc
-from openai.types.chat import ChatCompletionMessageParam
 from services.mongo_service import MongoService, mongo_service
 from services.openai_service import OpenAIClient, openai_client
-from services.rag_service import search_text_and_documents
 from utils.tiktoken import count_tokens, truncate_all
 
 router = APIRouter(

@@ -99,7 +99,7 @@ class OpenAIClient:
                 logger.info("llm tool prompt: " + arguments["prompt"])
                 # Execute the RAG function with extracted arguments
                 rag_result = await search_text_and_documents(arguments["prompt"], conversation_id, mongo_service)
-                # print("rag results: ", rag_result)
+                print("rag results: ", rag_result)
                 # Prepare a message with the RAG result to send back to the LLM
                 new_messages = messages + [{"role": "system", "content": f"RAG result: {rag_result}"}]
 

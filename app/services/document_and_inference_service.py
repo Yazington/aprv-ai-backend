@@ -222,24 +222,21 @@ def get_page_images_as_bytes(page, pdf_document: open) -> List[bytes]:
 async def compare_design_against_page(
     text: str, tables: List[str], design_bytes: bytes, guideline_image_bytes_list: bytes, openai_client: OpenAIClient
 ) -> Tuple[Union[BrandGuideline, None], int]:
-    # Prepare the prompt (this is a placeholder, you can replace it with your actual prompt)
-    prompt = f"""
-    The first image is the design. All other images are part of a brand licensing guideline.
+    # Prepare the prompt
+    guideline_text = "None" if text == "" else text
+    guideline_tables = "None" if not tables else "\n".join(tables)
 
-    Design Image: the first image.
-    Brand Guideline Images: all images after the first one.
-
-    Brand Guideline Text: 
-    {'None' if text == '' else text}
-
-    Brand Guideline Tables: 
-    {'None' if not tables else '\n'.join(tables)}
-
-    Please follow these steps:
-    1. Check if the Brand Guideline Text is related to brand guidelines. If it’s not, set "guideline_achieved" to None and stop. If it is, continue.
-    2. review_description (string): For each part of the Brand Guideline (text, images, tables), describe if the design aligns with it.
-    3. guideline_achieved (True, False, or None): Rate how suitable the design is based on the Brand Guideline. If the Brand Guideline isn’t relevant, return None.
-    """
+    prompt = (
+        f"The first image is the design. All other images are part of a brand licensing guideline.\n"
+        f"Design Image: the first image.\n"
+        f"Brand Guideline Images: all images after the first one.\n\n"
+        f"Brand Guideline Text:\n{guideline_text}\n\n"
+        f"Brand Guideline Tables:\n{guideline_tables}\n\n"
+        "Please follow these steps:\n"
+        "1. Check if the Brand Guideline Text is related to brand guidelines. If it’s not, set 'guideline_achieved' to None and stop. If it is, continue.\n"
+        "2. review_description (string): For each part of the Brand Guideline (text, images, tables), describe if the design aligns with it.\n"
+        "3. guideline_achieved (True, False, or None): Rate how suitable the design is based on the Brand Guideline. If the Brand Guideline isn’t relevant, return None."
+    )
 
     content: Union[BrandGuideline | None] = await openai_client.get_openai_multi_images_response(
         """

@@ -1,18 +1,36 @@
-FROM python:3.12-slim
+# Use a slim Python base image for your environment
+FROM python:3.11-slim
 
-# Set working directory
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    pkg-config \
+    poppler-utils \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set the working directory
 WORKDIR /app
 
-# Install dependencies
+# Copy your requirements.txt file into the container
 COPY requirements.txt .
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the application code
-COPY . .
+# Install additional packages from Git and other specifications
+RUN pip install --no-cache-dir \
+    git+https://github.com/openai/swarm.git \
+    git+https://github.com/HKUDS/LightRAG.git
 
-# Expose the app port
-EXPOSE 8000
-# RUN ls && sleep 5
-# RUN pwd && sleep 5
-# Run FastAPI app using uvicorn
-CMD ["uvicorn", "main:app", "--app-dir", "/app", "--host", "0.0.0.0", "--port", "8000"]
+# Install gunicorn
+RUN pip install --no-cache-dir gunicorn
+
+# Copy the 'app' directory into the container's '/app' directory
+COPY ./app ./app
+
+# Expose the port your app runs on
+EXPOSE 9000
+
+# Set the default command to run your FastAPI app using gunicorn with uvicorn workers
+CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "main:app", "--bind", "0.0.0.0:9000", "--chdir", "./app"]
