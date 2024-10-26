@@ -18,7 +18,7 @@ from tenacity import retry, stop_after_attempt, wait_random_exponential  # type:
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 async def search_text_and_documents(prompt: str, conversation_id: ObjectId, mongo_service: MongoService, mode="global") -> str:
-    user_rag_workdir = "./data"
+    user_rag_workdir = "/data"
     # print("in search text and docs")
     # print(conversation_id)
     # Sanitize conversation_id
@@ -57,7 +57,7 @@ async def search_text_and_documents(prompt: str, conversation_id: ObjectId, mong
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 async def insert_to_rag(conversation_id: str, mongo_service: MongoService):
-    user_rag_workdir = "./data"
+    user_rag_workdir = "/data"
 
     # Sanitize conversation_id
     safe_conversation_id = re.sub(r"[^a-zA-Z0-9_-]", "_", conversation_id)
@@ -103,7 +103,7 @@ async def insert_to_rag(conversation_id: str, mongo_service: MongoService):
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
 async def insert_to_rag_with_message(conversation_id: str, message: Message, mongo_service: MongoService):
-    user_rag_workdir = "./data"
+    user_rag_workdir = "/data"
 
     # Sanitize conversation_id
     safe_conversation_id = re.sub(r"[^a-zA-Z0-9_-]", "_", conversation_id)
