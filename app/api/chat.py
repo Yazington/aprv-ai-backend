@@ -69,7 +69,7 @@ async def retrieve_and_tokenize_message_history(mongo_service, prompt_message):
 @router.get("/generate/{message_id}")
 async def get_prompt_model_response(
     message_id: str,
-    user_id: str = Query(...),  # User ID as a query parameter
+    user_id: str = Query(None),  # User ID as a query parameter
     mongo_service: MongoService = mongo_service,
     openai_client: OpenAIClient = openai_client,
 ):

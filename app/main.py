@@ -1,25 +1,8 @@
-import logging
-import sys
-
 from api import auth, chat, conversation, upload
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from middlewares.token_validation_middleware import TokenValidationMiddleware
-
-# # Configure the logging system
-# logging.basicConfig(
-#     level=logging.INFO,  # Set the minimum log level
-#     format='%(asctime)s [%(levelname)s] %(name)s:%(lineno)d - %(message)s',
-#     handlers=[
-#         logging.StreamHandler(sys.stdout)  # Log to stdout
-#     ]
-# )
-
-# # Create a logger for your module
-# logger = logging.getLogger(__name__)
-
 
 app = FastAPI(
     title="APRV AI Backend",

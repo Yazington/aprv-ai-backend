@@ -1,9 +1,9 @@
 # app/logging_config.py
 
 import logging
+import os
 import sys
 from logging.handlers import RotatingFileHandler
-import os
 
 # Define a custom formatter to include filename and function name
 formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s [%(filename)s:%(lineno)d - %(funcName)s] - %(message)s")

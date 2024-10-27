@@ -4,7 +4,7 @@ from typing import List, Optional
 from config.logging_config import logger
 from fastapi import APIRouter, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
-from gridfs import GridOut
+from memory_profiler import profile  # type: ignore
 from models.conversation import Conversation
 from models.message import Message
 from odmantic import ObjectId
@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from PyPDF2 import PdfReader, PdfWriter
 from services.document_and_inference_service import guideline_to_txt_and_save_message_with_new_file
 from services.mongo_service import MongoService, mongo_service
-from services.rag_service import insert_to_rag, insert_to_rag_with_message
+from services.rag_service import insert_to_rag_with_message
 
 router = APIRouter(
     prefix="/upload",
@@ -31,9 +31,10 @@ class FileResponse(BaseModel):
     guidelines: List[File] = []
 
 
+@profile
 @router.post("/image")
 async def upload_image(
-    file: UploadFile, request: Request, conversation_id: Optional[str] = Query(...), mongo_service: MongoService = mongo_service
+    file: UploadFile, request: Request, conversation_id: Optional[str] = Query(None), mongo_service: MongoService = mongo_service
 ):
     # print(conversation_id)
     id = ObjectId()
@@ -66,9 +67,10 @@ async def upload_image(
             return {"error": "Conversation not found"}
 
 
+@profile
 @router.post("/pdf")
 async def upload_pdf(
-    file: UploadFile, request: Request, conversation_id: Optional[str] = Query(...), mongo_service: MongoService = mongo_service
+    file: UploadFile, request: Request, conversation_id: Optional[str] = Query(None), mongo_service: MongoService = mongo_service
 ):
     if file and file.size:
         logger.info("file uploading... " + str(file.size / 1000000) + "MB")
@@ -178,8 +180,9 @@ async def upload_pdf(
             return {"error": "Conversation not found"}
 
 
+@profile
 @router.get("")
-async def get_all_conversation_files(conversation_id: Optional[str] = Query(...), mongo_service: MongoService = mongo_service):
+async def get_all_conversation_files(conversation_id: Optional[str] = Query(None), mongo_service: MongoService = mongo_service):
     if not conversation_id:
         return JSONResponse("Please provide a conversation_id", 400)
     conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))

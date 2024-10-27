@@ -1,11 +1,10 @@
-import io
-import logging
+import asyncio
+import concurrent.futures
 from io import BytesIO
 from typing import List, Tuple, Union
 
 import fitz  # type: ignore
 from config.logging_config import logger
-from gmft.auto import AutoTableDetector, AutoTableFormatter  # type: ignore
 from gmft.pdf_bindings import PyPDFium2Document  # type: ignore
 from gridfs import GridOut
 from models.conversation import Conversation
@@ -14,15 +13,10 @@ from models.message import Message
 from models.review import Review
 from models.task import Task, TaskStatus
 from odmantic import ObjectId
-from pypdf import PdfWriter  # type: ignore
 from services.mongo_service import MongoService
 from services.openai_service import OpenAIClient
 from services.rag_service import insert_to_rag
 from utils.tiktoken import num_tokens_from_messages
-
-detector = AutoTableDetector()
-formatter = AutoTableFormatter()
-
 
 # TODO: refactor service to split into 2 (document processing and second part goes in openai_service)
 # higher order controller should have 2 calles to each service
@@ -30,6 +24,13 @@ formatter = AutoTableFormatter()
 
 
 async def infer_design_against_all(pdf_bytes, design_bytes, openai_client: OpenAIClient, conversation_id, mongo_service: MongoService):
+    from gmft.auto import (
+        AutoTableDetector,  # type:ignore
+        AutoTableFormatter,
+    )
+
+    formatter = AutoTableFormatter()
+    detector = AutoTableDetector()
     try:
         # opening document 2 times (one for text + images and second for tables)
         # reason is that fitz or PyPDFium2Document doesnt extract text as well as images, only images (need to investigate more)
@@ -56,7 +57,7 @@ async def infer_design_against_all(pdf_bytes, design_bytes, openai_client: OpenA
 
             # Extract tables
             tables = detector.extract(page)
-            text_tables = extract_and_store_tables_as_string(tables)
+            text_tables = extract_and_store_tables_as_string(tables, formatter)
             llm_page_request.given_tables = text_tables
 
             content: Union[BrandGuideline, None]
@@ -71,7 +72,7 @@ async def infer_design_against_all(pdf_bytes, design_bytes, openai_client: OpenA
                 raise Exception(f"Failed to get structured content for conversation id: {conversation_id}")
 
             if content:
-                review = await mongo_service.engine.save(
+                await mongo_service.engine.save(
                     Review(
                         id=ObjectId(),
                         conversation_id=ObjectId(conversation_id),
@@ -91,21 +92,21 @@ async def infer_design_against_all(pdf_bytes, design_bytes, openai_client: OpenA
     except Exception as e:
         doc.close()
         pdf_document.close()
-        raise Exception(e)
+        raise Exception(e) from e
 
     return inference_result_resources
 
 
-def extract_and_store_tables_as_string(tables):
-    extracted_data: List[str] = []
-    for idx, table in enumerate(tables):
-        # Format the table using the formatter
-        formatted_table = formatter.format(table)
-        df = formatted_table.df()
-        if not df.empty:
-            extracted_data.append(df.to_string(index=False))
+# def extract_and_store_tables_as_string(tables):
+#     extracted_data: List[str] = []
+#     for idx, table in enumerate(tables):
+#         # Format the table using the formatter
+#         formatted_table = formatter.format(table)
+#         df = formatted_table.df()
+#         if not df.empty:
+#             extracted_data.append(df.to_string(index=False))
 
-    return extracted_data
+#     return extracted_data
 
 
 async def background_process_design(conversation_id: str, mongo_service: MongoService, openai_client: OpenAIClient):
@@ -256,50 +257,82 @@ and you have to make sure that the design respects every single word/line/senten
     return content, tokens_used
 
 
+# Ensure these are properly imported or defined in your code
+# from your_module import LLMPageInferenceResource, LLMPageRequest, detector, formatter, logger
+
+
+def init_subprocess_models():
+    global detector
+    global formatter
+    from gmft.auto import AutoTableDetector, AutoTableFormatter
+
+    detector = AutoTableDetector()
+    formatter = AutoTableFormatter()
+
+
+def process_page(page_number, pdf_bytes):
+    # Re-initialize any global objects to ensure they are available in the subprocess
+    global detector
+    global formatter
+
+    # Open the documents
+    pdf_document = fitz.open("pdf", pdf_bytes)
+    doc = PyPDFium2Document(pdf_bytes)
+
+    # Get the page
+    fitz_page = pdf_document.load_page(page_number)
+    page = doc.get_page(page_number)
+
+    # Extract text from the page
+    text = fitz_page.get_text("text")
+
+    # Extract tables
+    logger.info(f"Extracting tables from page {page_number}")
+    tables = detector.extract(page)
+    logger.info(f"Formatting tables from page {page_number}")
+    text_tables = extract_and_store_tables_as_string(tables, formatter)
+
+    # Build the result
+    page_inference_resource = LLMPageInferenceResource()
+    page_inference_resource.page_number = page_number
+    page_inference_resource.given_text = text
+    page_inference_resource.given_tables = text_tables
+
+    # Close documents
+    pdf_document.close()
+    doc.close()
+
+    return page_inference_resource
+
+
+def extract_and_store_tables_as_string(tables, formatter):
+
+    extracted_data: List[str] = []
+    for table in tables:
+        # Format the table using the formatter
+        formatted_table = formatter.format(table)
+        df = formatted_table.df()
+        if not df.empty:
+            extracted_data.append(df.to_string(index=False))
+    return extracted_data
+
+
 async def extract_tables_and_text_from_file(pdf_bytes):
     try:
-        # opening document 2 times (one for text + images and second for tables)
-        # reason is that fitz or PyPDFium2Document doesnt extract text as well as images, only images (need to investigate more)
+        # Open the document to get the number of pages
         doc = PyPDFium2Document(pdf_bytes)
-        pdf_document = fitz.open("pdf", pdf_bytes)
-        if not doc or not pdf_document:
-            raise Exception("Failed to process contact doc is null")
+        num_pages = len(doc)
+        doc.close()
 
+        loop = asyncio.get_running_loop()
         inference_result_resources: List[LLMPageInferenceResource] = []
 
-        for page_number, page in enumerate(doc, start=0):
-            llm_page_request: LLMPageRequest = LLMPageRequest()
-            llm_page_request.page_number = page_number
-            fitz_page = pdf_document.load_page(page_number)
-
-            # Extract text from the page
-            text = fitz_page.get_text("text")
-            llm_page_request.given_text = text
-
-            # TODO: add image RAG as well if possible (maybe describing image as much as possible to txt)
-            # # Extract images
-            # # page = pdf_document.load_page(page_number)
-            # guideline_image_bytes_list = get_page_images_as_bytes(fitz_page, pdf_document)
-            # llm_page_request.give_images = guideline_image_bytes_list
-
-            # Extract tables
-            logger.info("extracting table")
-            tables = detector.extract(page)
-            logger.info("formatting table")
-            text_tables = extract_and_store_tables_as_string(tables)
-            llm_page_request.given_tables = text_tables
-
-            page_inference_resource: LLMPageInferenceResource = LLMPageInferenceResource()
-            page_inference_resource.page_number = page_number
-            page_inference_resource.given_text = llm_page_request.given_text
-            page_inference_resource.given_tables = llm_page_request.given_tables
-            inference_result_resources.append(page_inference_resource)
-        doc.close()
-        pdf_document.close()
+        with concurrent.futures.ProcessPoolExecutor(max_workers=6, initializer=init_subprocess_models) as pool:
+            tasks = [loop.run_in_executor(pool, process_page, page_number, pdf_bytes) for page_number in range(num_pages)]
+            inference_result_resources = await asyncio.gather(*tasks)
     except Exception as e:
-        doc.close()
-        pdf_document.close()
-        raise Exception(e)
+        logger.error(f"An error occurred: {e}")
+        raise
 
     return inference_result_resources
 
