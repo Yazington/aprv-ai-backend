@@ -50,6 +50,7 @@ ENV MONGO_URL=${MONGO_URL}
 # RUN echo pwd
 # RUN echo ls -a
 
+
 # Set the default command to run your FastAPI app using gunicorn with uvicorn workers
 CMD ["gunicorn", "-w", "8", "-k", "uvicorn.workers.UvicornWorker", "main:app", "--bind", "0.0.0.0:9000", "--chdir", "./app", "--log-level", "debug", "--access-logfile", "-", "--error-logfile", "-", "--timeout", "240"]
 
