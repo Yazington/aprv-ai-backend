@@ -283,7 +283,9 @@ async def extract_tables_and_text_from_file(pdf_bytes):
             # llm_page_request.give_images = guideline_image_bytes_list
 
             # Extract tables
+            logger.info("extracting table")
             tables = detector.extract(page)
+            logger.info("formatting table")
             text_tables = extract_and_store_tables_as_string(tables)
             llm_page_request.given_tables = text_tables
 
@@ -310,10 +312,13 @@ async def guideline_to_txt_and_save_message_with_new_file(
         logger.error("No contract file/null file")
         raise Exception("No contract file/null file")
 
-        # Read the contract bytes
+    logger.info("guideline to txt start: reading bytes ...")
+    # Read the contract bytes
     contract_bytes = contract_file.read()
+    logger.info("bytes read ...")
 
     llm_inference_per_page_resources = await extract_tables_and_text_from_file(contract_bytes)
+    logger.info("tables extracted ...")
 
     if not llm_inference_per_page_resources or llm_inference_per_page_resources == []:
         raise Exception("Failed to process pdf")

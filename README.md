@@ -39,3 +39,14 @@ run app under docker: docker-compose up -d
 get logs for app under docker: docker logs $(docker ps -a | grep aprv-ai | awk '{print $1}')
 start app: uvicorn main:app --app-dir ./app --reload --port 9000
 ```
+
+DOCKER:
+
+```
+docker build --build-arg OPENAI_API_KEY=api-key \
+	     --build-arg APRV_AI_API_KEY=api-key \
+	     --build-arg GOOGLE_CLIENT_ID=client-id \
+	     --build-arg MONGO_URL=db-url \
+	     -t my-fastapi-app .
+docker run -p 9000:9000   --network=aprv-ai-local   --cpus="8"   --memory="8g"   -v /home/yaz/Workspace/aprv-ai/aprv-ai-backend/data:/app/data   my-fastapi-app
+```

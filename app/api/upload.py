@@ -70,6 +70,8 @@ async def upload_image(
 async def upload_pdf(
     file: UploadFile, request: Request, conversation_id: Optional[str] = Query(...), mongo_service: MongoService = mongo_service
 ):
+    if file and file.size:
+        logger.info("file uploading... " + str(file.size / 1000000) + "MB")
     message_text = "A file has been uploaded, use the search text and document tool to access it using the next user prompt."
 
     # Read the uploaded file
@@ -94,6 +96,7 @@ async def upload_pdf(
             is_from_human=True,
             user_id=ObjectId(request.state.user_id),
         )
+        logger.info("using transformer to get tables ...")
         await guideline_to_txt_and_save_message_with_new_file(mongo_service, one_file_id, str(conversation.id), new_message)
         await insert_to_rag_with_message(str(conversation.id), new_message, mongo_service)
         return {
