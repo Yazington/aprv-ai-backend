@@ -1,24 +1,19 @@
 import base64
 import json
-from typing import AsyncGenerator, Dict, List, Union
+from typing import Annotated, AsyncGenerator, Dict, List, Union
 
 import httpx
 import openai
-from config.logging_config import logger
-from config.settings import settings
 from fastapi import Depends
-from models.llm_ready_page import BrandGuideline
 from odmantic import ObjectId
-from services.mongo_service import MongoService
-from services.rag_service import search_text_and_documents
 from swarm import Swarm  # type:ignore
-from tenacity import (
-    RetryError,
-    retry,
-    stop_after_attempt,
-    wait_random_exponential,
-)
+from tenacity import RetryError, retry, stop_after_attempt, wait_random_exponential
 
+from app.config.logging_config import logger
+from app.config.settings import settings
+from app.models.llm_ready_page import BrandGuideline
+from app.services.mongo_service import MongoService, get_mongo_service
+from app.services.rag_service import search_text_and_documents
 
 MODEL = "gpt-4o-mini"
 MARKDOWN_POSTFIX_PROMPT = """
@@ -28,7 +23,7 @@ Please give the answer with Markdown format if you really need to
 
 class OpenAIClient:
     def __init__(self):
-        if settings and settings.openai_api_key:
+        if settings and settings:
             self.async_client = openai.AsyncClient(api_key=settings.openai_api_key)
             self.client = openai.OpenAI(api_key=settings.aprv_ai_api_key)
             self.async_swarm = Swarm(client=self.async_client)
@@ -36,20 +31,27 @@ class OpenAIClient:
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def stream_openai_llm_response(
-        self, messages: List[Dict[str, str]], mongo_service: MongoService, conversation_id: str, model: str = MODEL
+        self,
+        messages: List[Dict[str, str]],
+        conversation_id: str,
+        mongo_service: Annotated[MongoService, Depends(get_mongo_service)],
+        model: str = MODEL,
     ) -> AsyncGenerator[str, None]:
+
         tools = [
             {
                 "type": "function",
                 "function": {
                     "name": "search_text_and_documents",
-                    "description": "Document Uploads, Guidelines and all file related that have text are already uploaded using this function. Retrieve relevant segments from documents based on a user query.",
+                    "description": """Document Uploads, Guidelines and all file related that have text are already
+                    uploaded using this function.Retrieve relevant segments from documents based on a user query.""",
                     "parameters": {
                         "type": "object",
                         "properties": {
                             "prompt": {
                                 "type": "string",
-                                "description": "The prompt or query text for which RAG results are needed. If user needs to know what is in it, summarize it",
+                                "description": """The prompt or query text for which RAG results are needed.
+                                If user needs to know what is in it, summarize it""",
                             },
                         },
                         "required": ["prompt"],
@@ -98,7 +100,7 @@ class OpenAIClient:
                 # print(f"Complete Tool call arguments: {arguments}")
                 logger.info("llm tool prompt: " + arguments["prompt"])
                 # Execute the RAG function with extracted arguments
-                rag_result = await search_text_and_documents(arguments["prompt"], conversation_id, mongo_service)
+                rag_result = await search_text_and_documents(arguments["prompt"], ObjectId(conversation_id), mongo_service)
                 print("rag results: ", rag_result)
                 # Prepare a message with the RAG result to send back to the LLM
                 new_messages = messages + [{"role": "system", "content": f"RAG result: {rag_result}"}]
@@ -235,6 +237,3 @@ class OpenAIClient:
 
 def get_openai_client():
     return OpenAIClient()
-
-
-openai_client: OpenAIClient = Depends(get_openai_client)

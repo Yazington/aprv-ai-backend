@@ -1,9 +1,9 @@
 import pymongo
-from config.settings import settings
-from fastapi import Depends
 from gridfs import GridFS
 from motor.motor_asyncio import AsyncIOMotorClient
 from odmantic import AIOEngine
+
+from app.config.settings import settings
 
 
 class MongoService:
@@ -22,6 +22,3 @@ class MongoService:
 
 def get_mongo_service() -> MongoService:
     return MongoService()
-
-
-mongo_service: MongoService = Depends(get_mongo_service)

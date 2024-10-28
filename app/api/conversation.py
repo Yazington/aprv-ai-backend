@@ -1,14 +1,17 @@
-from fastapi import APIRouter, BackgroundTasks, Query
+from typing import Annotated
+
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
-from models.conversation import Conversation
-from models.message import Message
-from models.review import Review
-from models.task import Task, TaskStatus
 from odmantic import ObjectId
-from services.document_and_inference_service import background_process_design
-from services.mongo_service import MongoService, mongo_service
-from services.openai_service import OpenAIClient, openai_client
+
+from app.models.conversation import Conversation
+from app.models.message import Message
+from app.models.review import Review
+from app.models.task import Task, TaskStatus
+from app.services.document_and_inference_service import background_process_design
+from app.services.mongo_service import MongoService, get_mongo_service
+from app.services.openai_service import OpenAIClient, get_openai_client
 
 router = APIRouter(
     prefix="/conversations",
@@ -17,21 +20,28 @@ router = APIRouter(
 
 
 @router.get("")
-async def get_conversations(user_id: str = Query(None), mongo_service: MongoService = mongo_service):
+async def get_conversations(mongo_service: Annotated[MongoService, Depends(get_mongo_service)], user_id: str = Query(None)):
+
     if not user_id:
         return None
     return await mongo_service.engine.find(Conversation, Conversation.user_id == ObjectId(user_id))
 
 
 @router.get("/conversation")
-async def get_conversations_by_conversation_id(conversation_id: str = Query(None), mongo_service: MongoService = mongo_service):
+async def get_conversations_by_conversation_id(
+    mongo_service: Annotated[MongoService, Depends(get_mongo_service)], conversation_id: str = Query(None)
+):
+
     if not conversation_id:
         return None
     return await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
 
 
 @router.get("/conversation-messages")
-async def get_conversations_messages(conversation_id: str = Query(None), mongo_service: MongoService = mongo_service):
+async def get_conversations_messages(
+    mongo_service: Annotated[MongoService, Depends(get_mongo_service)], conversation_id: str = Query(None)
+):
+
     if not conversation_id:
         return None
     return await mongo_service.engine.find(Message, Message.conversation_id == ObjectId(conversation_id))
@@ -40,10 +50,11 @@ async def get_conversations_messages(conversation_id: str = Query(None), mongo_s
 @router.get("/process-design")
 async def process_design(
     background_tasks: BackgroundTasks,
+    mongo_service: Annotated[MongoService, Depends(get_mongo_service)],
+    openai_client: Annotated[OpenAIClient, Depends(get_openai_client)],
     conversation_id: str = Query(None),
-    mongo_service: MongoService = mongo_service,
-    openai_client: OpenAIClient = openai_client,
 ):
+
     if not conversation_id:
         return {"error": "conversation_id is required"}
 
@@ -54,11 +65,9 @@ async def process_design(
     return {"message": "Process started", "conversation_id": conversation_id}
 
 
-# Polling endpoint to check if task is done
-
-
 @router.get("/process-status")
-async def process_status(conversation_id: str = Query(None), mongo_service: MongoService = mongo_service):
+async def process_status(mongo_service: Annotated[MongoService, Depends(get_mongo_service)], conversation_id: str = Query(None)):
+
     if not conversation_id:
         return JSONResponse("Please provide a conversation_id", status_code=400)
 
@@ -75,7 +84,8 @@ async def process_status(conversation_id: str = Query(None), mongo_service: Mong
 
 
 @router.get("/process-result")
-async def get_process_result(task_id: str = Query(None), mongo_service: MongoService = mongo_service):
+async def get_process_result(mongo_service: Annotated[MongoService, Depends(get_mongo_service)], task_id: str = Query(None)):
+
     if not task_id:
         return JSONResponse("Please provide a task_id", status_code=400)
 
@@ -91,7 +101,8 @@ async def get_process_result(task_id: str = Query(None), mongo_service: MongoSer
 
 
 @router.get("/conversation-reviews")
-async def get_conversation_reviews(conversation_id: str = Query(None), mongo_service: MongoService = mongo_service):
+async def get_conversation_reviews(mongo_service: Annotated[MongoService, Depends(get_mongo_service)], conversation_id: str = Query(None)):
+
     conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
     task = None
     if conversation.design_process_task_id:

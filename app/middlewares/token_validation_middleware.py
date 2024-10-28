@@ -1,12 +1,13 @@
 import datetime
-from config.logging_config import logger
 from typing import Union
 
 import jwt
-from config.settings import settings
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+
+from app.config.logging_config import logger
+from app.config.settings import settings
 
 
 class TokenValidationMiddleware(BaseHTTPMiddleware):

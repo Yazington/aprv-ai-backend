@@ -1,8 +1,9 @@
-from api import auth, chat, conversation, upload
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from middlewares.token_validation_middleware import TokenValidationMiddleware
+
+from app.api import auth, chat, conversation, upload
+from app.middlewares.token_validation_middleware import TokenValidationMiddleware
 
 app = FastAPI(
     title="APRV AI Backend",

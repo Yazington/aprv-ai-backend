@@ -5,6 +5,9 @@ from pydantic_settings import BaseSettings
 
 load_dotenv()
 
+# Load .env.local if it exists, overriding any variables previously set
+load_dotenv(dotenv_path=".env.local")
+
 
 class Settings(BaseSettings):
     mongo_url: str | None = os.getenv("MONGO_URL")

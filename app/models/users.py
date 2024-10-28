@@ -45,9 +45,9 @@ class GoogleAuthInfo(BaseModel):
 class User(Model):
     name: Optional[str] = None
     email: str
-    all_conversations_ids: List[ObjectId] = Field(default_factory=list)
+    all_conversations_ids: Optional[List[ObjectId]] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     modified_at: datetime = Field(default_factory=datetime.utcnow)
-    google_auth: Optional[GoogleAuthInfo]
+    google_auth: GoogleAuthInfo
     current_access_token: Optional[str] = None
     model_config = {"indexes": lambda: [Index(asc(User.email), asc(User.created_at), asc(User.modified_at))]}  # type: ignore

@@ -1,17 +1,18 @@
 import datetime
-from typing import Optional
+from typing import Annotated
 
 import jwt
-from config.logging_config import logger
-from config.settings import settings
 
 # from authlib.integrations.starlette_client import OAuth
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
-from models.users import GoogleAuthInfo, User
-from pydantic import BaseModel
-from services.mongo_service import MongoService, mongo_service
+
+from app.config.logging_config import logger
+from app.config.settings import settings
+from app.models.auth_request import AuthRequest
+from app.models.users import GoogleAuthInfo, User
+from app.services.mongo_service import MongoService, get_mongo_service
 
 router = APIRouter(
     prefix="/auth",
@@ -19,18 +20,8 @@ router = APIRouter(
 )
 
 
-# Dependency function for OAuth
-def get_oauth(request: Request):
-    return request.app.state.oauth
-
-
-class AuthRequest(BaseModel):
-    auth_token: Optional[str] = None
-    access_token: Optional[str] = None
-
-
 @router.post("/google")
-async def auth_google(auth_request: AuthRequest, mongo_service: MongoService = mongo_service):
+async def auth_google(auth_request: AuthRequest, mongo_service: Annotated[MongoService, Depends(get_mongo_service)]):
     """
     Authenticate and gives access token
     """

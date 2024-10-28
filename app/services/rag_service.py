@@ -1,19 +1,18 @@
 import asyncio
 import os
 import re
-from typing import List
 
 import numpy as np
-from exceptions.bad_conversation_files import DesignOrGuidelineNotFoundError
 from lightrag import LightRAG, QueryParam  # type:ignore
-from lightrag.llm import gpt_4o_complete, gpt_4o_mini_complete, openai_complete_if_cache, openai_embedding  # type:ignore
+from lightrag.llm import gpt_4o_mini_complete, openai_embedding  # type:ignore
 from lightrag.utils import EmbeddingFunc  # type:ignore
-from models.conversation import Conversation
-from models.message import Message
-from models.task import Task
 from odmantic import ObjectId
-from services.mongo_service import MongoService
-from tenacity import retry, stop_after_attempt, wait_random_exponential  # type:ignore
+from tenacity import retry, stop_after_attempt, wait_random_exponential
+
+from app.models.conversation import Conversation
+from app.models.message import Message
+from app.models.task import Task
+from app.services.mongo_service import MongoService
 
 
 @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
@@ -135,14 +134,7 @@ async def insert_to_rag_with_message(conversation_id: str, message: Message, mon
         embedding_func=EmbeddingFunc(embedding_dim=3072, max_token_size=8192, func=embedding_func),
     )
 
-    # Run the blocking `rag.insert` in a separate thread and wait for it to finish
     await rag.ainsert(processed_guideline_document_txt)
-    # try:
-    #     await asyncio.to_thread(rag.insert, processed_guideline_document_txt)
-    #     print(f"Data inserted successfully for user {conversation_id}.")
-    # except Exception as e:
-    #     print(f"Error during data insertion for user {conversation_id}: {e}")
-    #     raise e
 
 
 async def embedding_func(texts: list[str]) -> np.ndarray:

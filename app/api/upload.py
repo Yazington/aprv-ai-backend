@@ -1,19 +1,20 @@
 import io
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
-from config.logging_config import logger
-from fastapi import APIRouter, Query, Request, UploadFile
+from fastapi import APIRouter, Depends, Query, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 # from memory_profiler import profile  # type: ignore
-from models.conversation import Conversation
-from models.message import Message
 from odmantic import ObjectId
 from pydantic import BaseModel
 from PyPDF2 import PdfReader, PdfWriter
-from services.document_and_inference_service import guideline_to_txt_and_save_message_with_new_file
-from services.mongo_service import MongoService, mongo_service
-from services.rag_service import insert_to_rag_with_message
+
+from app.config.logging_config import logger
+from app.models.conversation import Conversation
+from app.models.message import Message
+from app.services.document_and_inference_service import guideline_to_txt_and_save_message_with_new_file
+from app.services.mongo_service import MongoService, get_mongo_service
+from app.services.rag_service import insert_to_rag_with_message
 
 router = APIRouter(
     prefix="/upload",
@@ -35,8 +36,12 @@ class FileResponse(BaseModel):
 # @profile
 @router.post("/image")
 async def upload_image(
-    file: UploadFile, request: Request, conversation_id: Optional[str] = Query(None), mongo_service: MongoService = mongo_service
+    file: UploadFile,
+    request: Request,
+    mongo_service: Annotated[MongoService, Depends(get_mongo_service)],
+    conversation_id: Optional[str] = Query(None),
 ):
+
     # print(conversation_id)
     id = ObjectId()
     file_id = mongo_service.fs.put(await file.read(), filename=file.filename, id=id)
@@ -71,8 +76,12 @@ async def upload_image(
 # @profile
 @router.post("/pdf")
 async def upload_pdf(
-    file: UploadFile, request: Request, conversation_id: Optional[str] = Query(None), mongo_service: MongoService = mongo_service
+    file: UploadFile,
+    request: Request,
+    mongo_service: Annotated[MongoService, Depends(get_mongo_service)],
+    conversation_id: Optional[str] = Query(None),
 ):
+
     if file and file.size:
         logger.info("file uploading... " + str(file.size / 1000000) + "MB")
     message_text = "A file has been uploaded, use the search text and document tool to access it using the next user prompt."
@@ -183,11 +192,13 @@ async def upload_pdf(
 
 # @profile
 @router.get("")
-async def get_all_conversation_files(conversation_id: Optional[str] = Query(None), mongo_service: MongoService = mongo_service):
+async def get_all_conversation_files(
+    mongo_service: Annotated[MongoService, Depends(get_mongo_service)], conversation_id: Optional[str] = Query(None)
+):
+
     if not conversation_id:
         return JSONResponse("Please provide a conversation_id", 400)
     conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
-    print(conversation)
     response: FileResponse = FileResponse()
 
     if conversation and conversation.design_id:

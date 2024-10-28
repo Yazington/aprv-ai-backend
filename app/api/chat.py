@@ -1,16 +1,17 @@
 import json
-from typing import AsyncGenerator, Optional
+from typing import Annotated, AsyncGenerator, Optional
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from models.conversation import Conversation
-from models.create_prompt_request import CreatePromptRequest
-from models.message import Message
 from odmantic import ObjectId
 from odmantic.query import asc
-from services.mongo_service import MongoService, mongo_service
-from services.openai_service import OpenAIClient, openai_client
-from utils.tiktoken import count_tokens, truncate_all
+
+from app.models.conversation import Conversation
+from app.models.create_prompt_request import CreatePromptRequest
+from app.models.message import Message
+from app.services.mongo_service import MongoService, get_mongo_service
+from app.services.openai_service import OpenAIClient, get_openai_client
+from app.utils.tiktoken import count_tokens, truncate_all
 
 router = APIRouter(
     prefix="/chat",
@@ -19,7 +20,10 @@ router = APIRouter(
 
 
 @router.post("/create_prompt")
-async def create_prompt(create_prompt_request: CreatePromptRequest, request: Request, mongo_service: MongoService = mongo_service):
+async def create_prompt(
+    create_prompt_request: CreatePromptRequest, request: Request, mongo_service: Annotated[MongoService, Depends(get_mongo_service)]
+):
+
     message = Message(
         id=ObjectId(),
         conversation_id=ObjectId(create_prompt_request.conversation_id),
@@ -69,10 +73,11 @@ async def retrieve_and_tokenize_message_history(mongo_service, prompt_message):
 @router.get("/generate/{message_id}")
 async def get_prompt_model_response(
     message_id: str,
-    user_id: str = Query(None),  # User ID as a query parameter
-    mongo_service: MongoService = mongo_service,
-    openai_client: OpenAIClient = openai_client,
+    request: Request,
+    mongo_service: Annotated[MongoService, Depends(get_mongo_service)],
+    openai_client: Annotated[OpenAIClient, Depends(get_openai_client)],
 ):
+    user_id = request.state.user_id
     # Retrieve the user prompt
     prompt_message = await mongo_service.engine.find_one(Message, Message.id == ObjectId(message_id))
     if prompt_message is None:
@@ -95,8 +100,8 @@ async def get_prompt_model_response(
                 "role": "system",
                 "content": """
 You are a brand guideline helper and reviewer, at your disposal, there are tools you can use since there will be a lot of
-tools you can use. A user can upload files and you must help him. He is a brand licensee or a brand licensor. 
-You will give answers that are precise and direct. You need to be sure of your answers. 
+tools you can use. A user can upload files and you must help him. He is a brand licensee or a brand licensor.
+You will give answers that are precise and direct. You need to be sure of your answers.
 Since a user is uploading a design and testing it against a guideline, we add the review of that design within the document
 for each page!
 """,
@@ -112,7 +117,7 @@ for each page!
         full_response = ""
         full_response_message = Message(id=ObjectId(), content=full_response, is_from_human=False, user_id=ObjectId(user_id))
 
-        async for chunk in openai_client.stream_openai_llm_response(messages, mongo_service, prompt_message.conversation_id):
+        async for chunk in openai_client.stream_openai_llm_response(messages, prompt_message.conversation_id, mongo_service):
             if chunk:
                 full_response += chunk
                 # print(chunk, end="")

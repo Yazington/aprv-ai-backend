@@ -4,19 +4,20 @@ from io import BytesIO
 from typing import List, Tuple, Union
 
 import fitz  # type: ignore
-from config.logging_config import logger
 from gmft.pdf_bindings import PyPDFium2Document  # type: ignore
 from gridfs import GridOut
-from models.conversation import Conversation
-from models.llm_ready_page import BrandGuideline, LLMPageInferenceResource, LLMPageRequest
-from models.message import Message
-from models.review import Review
-from models.task import Task, TaskStatus
 from odmantic import ObjectId
-from services.mongo_service import MongoService
-from services.openai_service import OpenAIClient
-from services.rag_service import insert_to_rag
-from utils.tiktoken import num_tokens_from_messages
+
+from app.config.logging_config import logger
+from app.models.conversation import Conversation
+from app.models.llm_ready_page import BrandGuideline, LLMPageInferenceResource, LLMPageRequest
+from app.models.message import Message
+from app.models.review import Review
+from app.models.task import Task, TaskStatus
+from app.services.mongo_service import MongoService
+from app.services.openai_service import OpenAIClient
+from app.services.rag_service import insert_to_rag
+from app.utils.tiktoken import num_tokens_from_messages
 
 # TODO: refactor service to split into 2 (document processing and second part goes in openai_service)
 # higher order controller should have 2 calles to each service
@@ -24,8 +25,8 @@ from utils.tiktoken import num_tokens_from_messages
 
 
 async def infer_design_against_all(pdf_bytes, design_bytes, openai_client: OpenAIClient, conversation_id, mongo_service: MongoService):
-    from gmft.auto import (
-        AutoTableDetector,  # type:ignore
+    from gmft.auto import (  # type:ignore
+        AutoTableDetector,
         AutoTableFormatter,
     )
 
@@ -62,6 +63,9 @@ async def infer_design_against_all(pdf_bytes, design_bytes, openai_client: OpenA
 
             content: Union[BrandGuideline, None]
             number_of_token: int
+
+            if not llm_page_request.given_tables:
+                llm_page_request.given_tables = []
 
             content, number_of_token = await compare_design_against_page(
                 llm_page_request.given_text, llm_page_request.given_tables, design_bytes, llm_page_request.give_images, openai_client
@@ -204,7 +208,7 @@ async def create_task(conversation_id, mongo_service):
     return task
 
 
-def get_page_images_as_bytes(page, pdf_document: open) -> List[bytes]:
+def get_page_images_as_bytes(page, pdf_document: fitz.Document) -> List[bytes]:
     # Extract images from the page
     images = page.get_images(full=True)
     if len(images) > 20:
@@ -221,7 +225,7 @@ def get_page_images_as_bytes(page, pdf_document: open) -> List[bytes]:
 
 
 async def compare_design_against_page(
-    text: str, tables: List[str], design_bytes: bytes, guideline_image_bytes_list: bytes, openai_client: OpenAIClient
+    text: str, tables: List[str], design_bytes: bytes, guideline_image_bytes_list: List[bytes], openai_client: OpenAIClient
 ) -> Tuple[Union[BrandGuideline, None], int]:
     # Prepare the prompt
     guideline_text = "None" if text == "" else text
@@ -348,7 +352,7 @@ async def guideline_to_txt_and_save_message_with_new_file(
     logger.info("guideline to txt start: reading bytes ...")
     # Read the contract bytes
     contract_bytes = contract_file.read()
-    logger.info("bytes read ...")
+    logger.info("bytes read.")
 
     llm_inference_per_page_resources = await extract_tables_and_text_from_file(contract_bytes)
     logger.info("tables extracted ...")

@@ -45,6 +45,8 @@ ENV MONGO_URL=${MONGO_URL}
 
 # RUN pip install -U memory_profiler
 
+
+CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--reload", "-b", "0.0.0.0:9000", "app.main:app"]
 # CMD to run your FastAPI app with mprof
 # CMD ["mprof", "run", "--include-children", "--output", "/tmp/memory_usage.dat", "--python", "gunicorn", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "main:app", "--bind", "0.0.0.0:9000", "--chdir", "./app", "--log-level", "debug", "--access-logfile", "-", "--error-logfile", "-", "--timeout", "240"]
-CMD ["gunicorn", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "main:app", "--bind", "0.0.0.0:9000", "--chdir", "./app", "--log-level", "debug", "--access-logfile", "-", "--error-logfile", "-", "--timeout", "240"]
+# CMD ["gunicorn", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "main:app", "--bind", "0.0.0.0:9000", "--chdir", "./app", "--log-level", "debug", "--access-logfile", "-", "--error-logfile", "-", "--timeout", "240"]
