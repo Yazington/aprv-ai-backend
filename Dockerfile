@@ -15,22 +15,22 @@ WORKDIR /app
 # Copy your requirements.txt file into the container
 COPY requirements.txt .
 
-# Install all Python dependencies at once
+# Install all Python dependencies globally
 RUN pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir \
     git+https://github.com/openai/swarm.git \
     git+https://github.com/HKUDS/LightRAG.git && \
-    pip install gunicorn
+    pip install gunicorn memory_profiler
+
+# Add a non-root user and change ownership of /app directory
+RUN adduser --disabled-password appuser && chown -R appuser:appuser /app
+USER appuser
 
 # Copy the application code
 COPY ./app ./app
 
 # Expose the port your app runs on
 EXPOSE 9000
-
-# Consider switching to a non-root user (optional but recommended)
-# RUN useradd -m myuser
-# USER myuser
 
 # Set environment variables if needed at runtime
 ARG OPENAI_API_KEY
@@ -43,10 +43,10 @@ ENV APRV_AI_API_KEY=${APRV_AI_API_KEY}
 ENV GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
 ENV MONGO_URL=${MONGO_URL}
 
-# RUN pip install -U memory_profiler
+################ PROFILING ################
+# CMD ["mprof", "run", "--include-children", "--output", "/tmp/memory_usage.dat", "--python", "gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:9000", "app.main:app", "--timeout", "240"]
+################ PROFILING ################
 
 
-CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "--reload", "-b", "0.0.0.0:9000", "app.main:app"]
-# CMD to run your FastAPI app with mprof
-# CMD ["mprof", "run", "--include-children", "--output", "/tmp/memory_usage.dat", "--python", "gunicorn", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "main:app", "--bind", "0.0.0.0:9000", "--chdir", "./app", "--log-level", "debug", "--access-logfile", "-", "--error-logfile", "-", "--timeout", "240"]
+CMD ["gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:9000", "app.main:app", "--timeout", "240", "--max-requests", "10",  "--max-requests-jitter", "50"]
 # CMD ["gunicorn", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "main:app", "--bind", "0.0.0.0:9000", "--chdir", "./app", "--log-level", "debug", "--access-logfile", "-", "--error-logfile", "-", "--timeout", "240"]

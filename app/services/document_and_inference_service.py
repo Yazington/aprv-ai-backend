@@ -331,7 +331,7 @@ async def extract_tables_and_text_from_file(pdf_bytes):
         loop = asyncio.get_running_loop()
         inference_result_resources: List[LLMPageInferenceResource] = []
 
-        with concurrent.futures.ProcessPoolExecutor(max_workers=6, initializer=init_subprocess_models) as pool:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=10, initializer=init_subprocess_models) as pool:
             tasks = [loop.run_in_executor(pool, process_page, page_number, pdf_bytes) for page_number in range(num_pages)]
             inference_result_resources = await asyncio.gather(*tasks)
     except Exception as e:
