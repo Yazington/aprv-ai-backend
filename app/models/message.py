@@ -6,7 +6,7 @@ from odmantic.query import asc
 
 
 class Message(Model):
-    conversation_id: Optional[ObjectId] = None  # Make it optional
+    conversation_id: ObjectId
     content: str
     is_from_human: bool
     user_id: ObjectId

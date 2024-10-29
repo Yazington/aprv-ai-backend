@@ -1,4 +1,5 @@
 import datetime
+from typing import Annotated
 
 from fastapi import Depends
 from odmantic import ObjectId
@@ -51,5 +52,5 @@ class UserService:
             return await self.create_user(email, google_auth_info)
 
 
-def get_user_service(mongo_service: MongoService = Depends(get_mongo_service)) -> UserService:
+def get_user_service(mongo_service: Annotated[MongoService, Depends(get_mongo_service)]) -> UserService:
     return UserService(mongo_service=mongo_service)
