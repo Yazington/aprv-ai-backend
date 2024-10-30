@@ -23,8 +23,9 @@ RUN pip install -r requirements.txt && \
     pip install gunicorn memory_profiler
 
 # Add a non-root user and change ownership of /app directory
-RUN adduser --disabled-password appuser && chown -R appuser:appuser /app
-RUN mkdir -p /app/data && chown -R appuser:appuser /app/data
+RUN adduser --disabled-password appuser && \
+    export APPUSER_UID=$(id -u appuser) && \
+    mkdir -p /app/data && chown -R $APPUSER_UID:$APPUSER_UID /app/data
 
 USER appuser
 
@@ -50,5 +51,5 @@ ENV MONGO_URL=${MONGO_URL}
 ################ PROFILING ################
 
 
-CMD ["gunicorn","-w", "4", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:9000", "app.main:app", "--timeout", "240"]
+CMD ["sh", "-c", "chown -R appuser:appuser /app/data && gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:9000 app.main:app --timeout 240"]
 # CMD ["gunicorn", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "main:app", "--bind", "0.0.0.0:9000", "--chdir", "./app", "--log-level", "debug", "--access-logfile", "-", "--error-logfile", "-", "--timeout", "240"]
