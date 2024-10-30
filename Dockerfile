@@ -16,8 +16,8 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install all Python dependencies globally
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir \
+RUN pip install -r requirements.txt && \
+    pip install \
     git+https://github.com/openai/swarm.git \
     git+https://github.com/HKUDS/LightRAG.git && \
     pip install gunicorn memory_profiler
