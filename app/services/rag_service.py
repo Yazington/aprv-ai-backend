@@ -24,7 +24,7 @@ class RagService:
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def search_text_and_documents(self, prompt: str, conversation_id: ObjectId, mode="hybrid") -> str:
-        user_rag_workdir = "./data"
+        user_rag_workdir = "/app/data"
         safe_conversation_id = re.sub(r"[^a-zA-Z0-9_-]", "_", str(conversation_id))
 
         conversation = await self.mongo_service.engine.find_one(Conversation, Conversation.id == conversation_id)
@@ -54,7 +54,7 @@ class RagService:
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def insert_to_rag(self, conversation_id: str):
-        user_rag_workdir = "./data"
+        user_rag_workdir = "/app/data"
 
         # Sanitize conversation_id
         safe_conversation_id = re.sub(r"[^a-zA-Z0-9_-]", "_", conversation_id)
@@ -94,7 +94,7 @@ class RagService:
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def insert_to_rag_with_message(self, conversation_id: str, message: Message):
-        user_rag_workdir = "./data"
+        user_rag_workdir = "/app/data"
         safe_conversation_id = re.sub(r"[^a-zA-Z0-9_-]", "_", conversation_id)
 
         conversation = await self.mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
