@@ -24,6 +24,8 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 
 # Add a non-root user and change ownership of /app directory
 RUN adduser --disabled-password appuser && chown -R appuser:appuser /app
+RUN mkdir -p /app/data && chown -R appuser:appuser /app/data
+
 USER appuser
 
 # Copy the application code
