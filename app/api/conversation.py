@@ -6,10 +6,11 @@ from fastapi.responses import JSONResponse
 from odmantic import ObjectId
 
 from app.models.conversation import Conversation
-from app.models.message import Message
 from app.models.review import Review
 from app.models.task import Task, TaskStatus
-from app.services.document_and_inference_service import background_process_design
+from app.services.approval_service import ApprovalService, get_approval_service
+from app.services.conversation_service import ConversationService, get_conversation_service
+from app.services.message_service import MessageService, get_message_service
 from app.services.mongo_service import MongoService, get_mongo_service
 from app.services.openai_service import OpenAIClient, get_openai_client
 
@@ -20,38 +21,30 @@ router = APIRouter(
 
 
 @router.get("")
-async def get_conversations(mongo_service: Annotated[MongoService, Depends(get_mongo_service)], user_id: str = Query(None)):
-
-    if not user_id:
-        return None
-    return await mongo_service.engine.find(Conversation, Conversation.user_id == ObjectId(user_id))
+async def get_conversations_by_user_id(
+    conversation_service: Annotated[ConversationService, Depends(get_conversation_service)], user_id: str = Query(None)
+):
+    return await conversation_service.get_conversations_by_user_id(user_id)
 
 
 @router.get("/conversation")
-async def get_conversations_by_conversation_id(
-    mongo_service: Annotated[MongoService, Depends(get_mongo_service)], conversation_id: str = Query(None)
+async def get_conversation_by_conversation_id(
+    conversation_service: Annotated[ConversationService, Depends(get_conversation_service)], conversation_id: str = Query(None)
 ):
-
-    if not conversation_id:
-        return None
-    return await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
+    return await conversation_service.get_conversation_by_conversation_id(conversation_id)
 
 
 @router.get("/conversation-messages")
 async def get_conversations_messages(
-    mongo_service: Annotated[MongoService, Depends(get_mongo_service)], conversation_id: str = Query(None)
+    message_service: Annotated[MessageService, Depends(get_message_service)], conversation_id: str = Query(None)
 ):
-
-    if not conversation_id:
-        return None
-    return await mongo_service.engine.find(Message, Message.conversation_id == ObjectId(conversation_id))
+    return await message_service.get_conversations_messages(conversation_id)
 
 
 @router.get("/process-design")
 async def process_design(
     background_tasks: BackgroundTasks,
-    mongo_service: Annotated[MongoService, Depends(get_mongo_service)],
-    openai_client: Annotated[OpenAIClient, Depends(get_openai_client)],
+    doc_and_infer_service: Annotated[ApprovalService, Depends(get_approval_service)],
     conversation_id: str = Query(None),
 ):
 
@@ -59,7 +52,7 @@ async def process_design(
         return {"error": "conversation_id is required"}
 
     # Start the background task
-    background_tasks.add_task(background_process_design, conversation_id, mongo_service, openai_client)
+    background_tasks.add_task(doc_and_infer_service.background_process_design, conversation_id)
 
     # Return immediate response with status code 200
     return {"message": "Process started", "conversation_id": conversation_id}

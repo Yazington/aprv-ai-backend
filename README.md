@@ -22,7 +22,7 @@ A FastAPI project with integrated Ruff, Mypy, and Black for linting, type checki
 4. **Run the application**
 
    ```bash
-   uvicorn main:app --app-dir ./app --reload --port 9000
+   uvicorn app.main:app --reload --port 9000
    ```
 
 ## Tools
@@ -37,7 +37,7 @@ A FastAPI project with integrated Ruff, Mypy, and Black for linting, type checki
 ```
 run app under docker: docker-compose up -d
 get logs for app under docker: docker logs $(docker ps -a | grep aprv-ai | awk '{print $1}')
-start app: uvicorn main:app --app-dir ./app --reload --port 9000
+start app: uvicorn app.main:app --reload --port 9000
 ```
 
 DOCKER:

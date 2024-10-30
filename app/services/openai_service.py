@@ -2,18 +2,15 @@ import base64
 import json
 from typing import Annotated, AsyncGenerator, Dict, List, Union
 
-import httpx
 import openai
 from fastapi import Depends
 from odmantic import ObjectId
-from swarm import Swarm  # type:ignore
 from tenacity import RetryError, retry, stop_after_attempt, wait_random_exponential
 
 from app.config.logging_config import logger
 from app.config.settings import settings
-from app.models.llm_ready_page import BrandGuideline
-from app.services.mongo_service import MongoService, get_mongo_service
-from app.services.rag_service import search_text_and_documents
+from app.models.llm_ready_page import BrandGuidelineReviewResource
+from app.services.rag_service import RagService, get_rag_service
 
 MODEL = "gpt-4o-mini"
 MARKDOWN_POSTFIX_PROMPT = """
@@ -22,19 +19,17 @@ Please give the answer with Markdown format if you really need to
 
 
 class OpenAIClient:
-    def __init__(self):
+    def __init__(self, rag_service: RagService):
         if settings and settings:
             self.async_client = openai.AsyncClient(api_key=settings.openai_api_key)
-            self.client = openai.OpenAI(api_key=settings.aprv_ai_api_key)
-            self.async_swarm = Swarm(client=self.async_client)
-            self.swarm = Swarm(client=self.client)
+            # self.async_swarm = Swarm(client=self.async_client)
+            self.rag_service = rag_service
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def stream_openai_llm_response(
         self,
         messages: List[Dict[str, str]],
         conversation_id: str,
-        mongo_service: Annotated[MongoService, Depends(get_mongo_service)],
         model: str = MODEL,
     ) -> AsyncGenerator[str, None]:
 
@@ -61,7 +56,7 @@ class OpenAIClient:
             }
         ]
 
-        stream = await self.async_client.chat.completions.create(
+        stream = await self.async_client.chat.completions.create(  # type: ignore
             model=model,
             messages=messages,
             tools=tools,
@@ -100,15 +95,15 @@ class OpenAIClient:
                 # print(f"Complete Tool call arguments: {arguments}")
                 logger.info("llm tool prompt: " + arguments["prompt"])
                 # Execute the RAG function with extracted arguments
-                rag_result = await search_text_and_documents(arguments["prompt"], ObjectId(conversation_id), mongo_service)
-                print("rag results: ", rag_result)
+                rag_result = await self.rag_service.search_text_and_documents(arguments["prompt"], ObjectId(conversation_id))
+                # print("rag results: ", rag_result)
                 # Prepare a message with the RAG result to send back to the LLM
                 new_messages = messages + [{"role": "system", "content": f"RAG result: {rag_result}"}]
 
                 # Restart the stream with updated messages including the RAG result
                 stream = await self.async_client.chat.completions.create(
                     model=model,
-                    messages=new_messages,
+                    messages=new_messages,  # type: ignore
                     stream=True,
                 )
 
@@ -122,67 +117,9 @@ class OpenAIClient:
                 print("Failed to decode JSON arguments.")
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
-    async def stream_openai_vision_response(self, prompt: str, image: bytes) -> AsyncGenerator[str, None]:
-        """
-        Streams tokens for a given query from OpenAI API using the SDK with an image.
-        """
-        # Convert image to base64 encoded string
-        image_base64 = base64.b64encode(image).decode("utf-8")
-
-        stream = await self.async_client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}},
-                        {"type": "text", "text": prompt},
-                    ],
-                }
-            ],
-            stream=True,
-        )
-
-        async for chunk in stream:
-            content = chunk.choices[0].delta.content or ""
-            yield content
-
-    @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
-    async def stream_openai_multi_images_response(self, prompt: str, design: bytes, non_design: bytes) -> AsyncGenerator[str, None]:
-        """
-        Streams tokens for a given query from OpenAI API using multiple images.
-        first image should always be the design
-        """
-        design_base64 = base64.b64encode(design).decode("utf-8")
-        non_design_base64 = base64.b64encode(non_design).decode("utf-8")
-
-        design_url_obj = {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{design_base64}"}}
-        non_design_url_obj = {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{non_design_base64}"}}
-
-        try:
-            stream = await self.async_client.chat.completions.create(
-                model=MODEL,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [design_url_obj, non_design_url_obj, {"type": "text", "text": prompt}],
-                    }
-                ],
-                stream=True,
-            )
-        except httpx.HTTPStatusError as e:
-            logger.error(f"HTTP error occurred: {e.response.status_code} {e.response.text}")
-        except Exception as e:
-            logger.error(f"An error occurred: {e}")
-
-        async for chunk in stream:
-            content = chunk.choices[0].delta.content or ""
-            yield content
-
-    @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def get_openai_multi_images_response(
         self, system_prompt: str, prompt: str, design_image: bytes, non_design_images: List[bytes]
-    ) -> Union[BrandGuideline, None]:
+    ) -> Union[BrandGuidelineReviewResource, None]:
         """
         Get tokens for a given query from OpenAI API using multiple images.
         first image should always be the design.
@@ -200,7 +137,7 @@ class OpenAIClient:
                 non_design_images_objects.append(non_design_url_obj)
 
             # Make the API call
-            llm_response = self.client.beta.chat.completions.parse(
+            llm_response = await self.async_client.beta.chat.completions.parse(
                 model=MODEL,
                 messages=[
                     {
@@ -214,10 +151,10 @@ class OpenAIClient:
                     },
                     {
                         "role": "user",
-                        "content": [design_url_obj, *non_design_images_objects, {"type": "text", "text": prompt}],
+                        "content": [design_url_obj, *non_design_images_objects, {"type": "text", "text": prompt}],  # type: ignore
                     },
                 ],
-                response_format=BrandGuideline,
+                response_format=BrandGuidelineReviewResource,
             )
 
             # Check if the response contains parsed content
@@ -235,5 +172,7 @@ class OpenAIClient:
             raise
 
 
-def get_openai_client():
-    return OpenAIClient()
+def get_openai_client(
+    rag_service: Annotated[RagService, Depends(get_rag_service)],
+):
+    return OpenAIClient(rag_service)

@@ -96,7 +96,7 @@ for each page!
             conversation_id=prompt_message.conversation_id,
         )
 
-        async for chunk in openai_client.stream_openai_llm_response(messages, str(prompt_message.conversation_id), mongo_service):
+        async for chunk in openai_client.stream_openai_llm_response(messages, str(prompt_message.conversation_id)):
             if chunk:
                 full_response += chunk
                 yield f"data: {json.dumps({'content': chunk})}\n\n"

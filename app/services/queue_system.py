@@ -1,6 +1,5 @@
-import time
-from rq import Queue
 from redis import Redis
+from rq import Queue
 from tenacity import retry, stop_after_attempt, wait_fixed
 
 # Connect to Redis server

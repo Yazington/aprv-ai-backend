@@ -1,36 +1,24 @@
 import io
-from typing import Annotated, List, Optional
-
-from fastapi import APIRouter, Depends, Query, Request, UploadFile
-from fastapi.responses import JSONResponse
+from typing import Annotated, Optional
 
 # from memory_profiler import profile  # type: ignore
+import fitz  # type:ignore
+from fastapi import APIRouter, Depends, Query, Request, UploadFile
+from fastapi.responses import JSONResponse
 from odmantic import ObjectId
-from pydantic import BaseModel
-from PyPDF2 import PdfReader, PdfWriter
 
 from app.config.logging_config import logger
 from app.models.conversation import Conversation
+from app.models.files import File, FileResponse
 from app.models.message import Message
-from app.services.document_and_inference_service import guideline_to_txt_and_save_message_with_new_file
 from app.services.mongo_service import MongoService, get_mongo_service
-from app.services.rag_service import insert_to_rag_with_message
+from app.services.rag_service import RagService, get_rag_service
+from app.services.upload_service import UploadService, get_upload_service
 
 router = APIRouter(
     prefix="/upload",
     tags=["Upload"],
 )
-
-
-class File(BaseModel):
-    name: Optional[str] = None
-    type: Optional[str] = None
-    size: Optional[int] = None
-
-
-class FileResponse(BaseModel):
-    design: Optional[File] = None
-    guidelines: List[File] = []
 
 
 # @profile
@@ -79,6 +67,8 @@ async def upload_pdf(
     file: UploadFile,
     request: Request,
     mongo_service: Annotated[MongoService, Depends(get_mongo_service)],
+    rag_service: Annotated[RagService, Depends(get_rag_service)],
+    upload_service: Annotated[UploadService, Depends(get_upload_service)],
     conversation_id: Optional[str] = Query(None),
 ):
 
@@ -109,8 +99,10 @@ async def upload_pdf(
             user_id=ObjectId(request.state.user_id),
         )
         logger.info("using transformer to get tables ...")
-        await guideline_to_txt_and_save_message_with_new_file(mongo_service, one_file_id, str(conversation.id), new_message)
-        await insert_to_rag_with_message(str(conversation.id), new_message, mongo_service)
+        txt_file_id = await upload_service.upload_guideline_and_concat(one_file_id, str(conversation.id))
+        new_message.uploaded_pdf_id = txt_file_id
+        await mongo_service.engine.save(new_message)
+        await rag_service.insert_to_rag_with_message(str(conversation.id), new_message)
         return {
             "message": "Contract uploaded",
             "file_id": str(one_file_id),
@@ -122,48 +114,29 @@ async def upload_pdf(
         if conversation:
             # Fetch existing concatenated PDF from GridFS
             existing_guidelines_file_id = conversation.guidelines_id
-            existing_pdf_stream = io.BytesIO()
-            existing_pdf_reader = None
+            merged_pdf = fitz.open()
+
             if existing_guidelines_file_id:
                 existing_pdf_content = mongo_service.fs.get(existing_guidelines_file_id).read()
                 existing_pdf_stream = io.BytesIO(existing_pdf_content)
-                existing_pdf_reader = PdfReader(existing_pdf_stream)
+                existing_pdf = fitz.open(stream=existing_pdf_stream, filetype="pdf")
+                merged_pdf.insert_pdf(existing_pdf)
 
-            # Create PDF readers for the new file
-            uploaded_pdf_reader = PdfReader(uploaded_file_stream)
-
-            # Create a blank page matching the size of the uploaded PDF
-            page_width = uploaded_pdf_reader.pages[0].mediabox.width
-            page_height = uploaded_pdf_reader.pages[0].mediabox.height
-            blank_page_writer = PdfWriter()
-            blank_page_writer.add_blank_page(width=page_width, height=page_height)
-            blank_page_stream = io.BytesIO()
-            blank_page_writer.write(blank_page_stream)
-            blank_page_stream.seek(0)
-            blank_page_reader = PdfReader(blank_page_stream)
-
-            # Concatenate PDFs
-            pdf_writer = PdfWriter()
-            if existing_pdf_reader:
-                for page in existing_pdf_reader.pages:
-                    pdf_writer.add_page(page)
-                # Add a blank page separator
-                pdf_writer.add_page(blank_page_reader.pages[0])
-            # Add pages from the new uploaded PDF
-            for page in uploaded_pdf_reader.pages:
-                pdf_writer.add_page(page)
+            # Open the new uploaded PDF
+            uploaded_pdf = fitz.open(stream=uploaded_file_stream, filetype="pdf")
+            merged_pdf.insert_pdf(uploaded_pdf)
 
             # Write concatenated PDF to a BytesIO stream
             concatenated_pdf_stream = io.BytesIO()
-            pdf_writer.write(concatenated_pdf_stream)
+            merged_pdf.save(concatenated_pdf_stream)
             concatenated_pdf_stream.seek(0)
             concatenated_pdf_content = concatenated_pdf_stream.read()
 
             # Save concatenated PDF to GridFS
-            new_file_id = mongo_service.fs.put(concatenated_pdf_content, filename=f"concatenated_{conversation.id}.pdf")
+            concatenated_file_id = mongo_service.fs.put(concatenated_pdf_content, filename=f"concatenated_{conversation.id}.pdf")
 
             # Update conversation's guidelines_id
-            conversation.guidelines_id = new_file_id
+            conversation.guidelines_id = concatenated_file_id
             await mongo_service.engine.save(conversation)
 
             # Optionally, delete old concatenated PDF from GridFS
@@ -179,11 +152,13 @@ async def upload_pdf(
                 user_id=ObjectId(request.state.user_id),
             )
             await mongo_service.engine.save(new_message)
-            await guideline_to_txt_and_save_message_with_new_file(mongo_service, new_file_id, str(conversation.id), new_message)
-            await insert_to_rag_with_message(str(conversation.id), new_message, mongo_service)
+            txt_file_id = await upload_service.upload_guideline_and_concat(concatenated_file_id, str(conversation.id))
+            new_message.uploaded_pdf_id = txt_file_id
+            await mongo_service.engine.save(new_message)
+            await rag_service.insert_to_rag_with_message(str(conversation.id), new_message)
             return {
                 "message": "Contract uploaded",
-                "file_id": str(new_file_id),
+                "file_id": str(concatenated_file_id),
                 "conversation_id": str(conversation.id),
             }
         else:

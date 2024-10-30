@@ -39,6 +39,11 @@ class MessageService:
             return "\n".join(msg.content for msg in past_messages)
         return ""
 
+    async def get_conversations_messages(self, conversation_id: str):
+        if not conversation_id:
+            return None
+        return await self.mongo_service.engine.find(Message, Message.conversation_id == ObjectId(conversation_id))
+
     def get_tokenized_message_count(self, message: str) -> int:
         return count_tokens(message)
 
