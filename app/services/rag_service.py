@@ -1,4 +1,3 @@
-import asyncio
 import os
 import re
 from typing import Annotated
@@ -6,8 +5,8 @@ from typing import Annotated
 import numpy as np
 from fastapi import Depends
 from lightrag import LightRAG, QueryParam  # type:ignore
-from lightrag.utils import EmbeddingFunc
-from lightrag.llm import gpt_4o_mini_complete, openai_embedding, openai_complete_if_cache  # type:ignore
+from lightrag.llm import openai_complete_if_cache, openai_embedding  # type:ignore
+from lightrag.utils import EmbeddingFunc  # type:ignore
 from odmantic import ObjectId
 from tenacity import retry, stop_after_attempt, wait_random_exponential
 
@@ -24,7 +23,7 @@ class RagService:
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def search_text_and_documents(self, prompt: str, conversation_id: ObjectId, mode="hybrid") -> str:
-        user_rag_workdir = "/app/data"
+        user_rag_workdir = "./data"
         safe_conversation_id = re.sub(r"[^a-zA-Z0-9_-]", "_", str(conversation_id))
 
         conversation = await self.mongo_service.engine.find_one(Conversation, Conversation.id == conversation_id)
@@ -54,7 +53,7 @@ class RagService:
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def insert_to_rag(self, conversation_id: str):
-        user_rag_workdir = "/app/data"
+        user_rag_workdir = "./data"
 
         # Sanitize conversation_id
         safe_conversation_id = re.sub(r"[^a-zA-Z0-9_-]", "_", conversation_id)
@@ -94,7 +93,7 @@ class RagService:
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def insert_to_rag_with_message(self, conversation_id: str, message: Message):
-        user_rag_workdir = "/app/data"
+        user_rag_workdir = "./data"
         safe_conversation_id = re.sub(r"[^a-zA-Z0-9_-]", "_", conversation_id)
 
         conversation = await self.mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))

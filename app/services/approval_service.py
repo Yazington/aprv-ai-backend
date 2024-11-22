@@ -41,56 +41,70 @@ class ApprovalService:
         )
 
         try:
-            inference_result_resources: List[LLMPageInferenceResource] = []  # type:ignore
+            inference_result_resources: List[LLMPageInferenceResource] = []
 
+            page_data_list = []
+
+            # Sequentially extract necessary data from the doc
             for extracted_pdf_content in extracted_pdf_resources:
                 fitz_page = doc.load_page(extracted_pdf_content.page_number)
 
                 # Extract images
-                # page = pdf_document.load_page(page_number)
                 guideline_image_bytes_list = self.get_page_images_as_bytes(fitz_page, doc)
                 extracted_pdf_content.give_images = guideline_image_bytes_list
-
-                content: Union[BrandGuidelineReviewResource, None] = None  # type:ignore
 
                 if not extracted_pdf_content.given_tables:
                     extracted_pdf_content.given_tables = []
 
-                content, number_of_token = await self.compare_design_against_page(
-                    extracted_pdf_content.given_text,
-                    extracted_pdf_content.given_tables,
-                    design_bytes,
-                    extracted_pdf_content.give_images,
-                    self.openai_client,
-                )
-
-                # print("num tokens used: ", number_of_token)
-                if not content:
-                    raise Exception(f"Failed to get structured content for conversation id: {conversation_id}")
-
-                if content:
-                    await self.mongo_service.engine.save(
-                        Review(
-                            id=ObjectId(),
-                            conversation_id=ObjectId(conversation_id),
-                            page_number=extracted_pdf_content.page_number,
-                            review_description=content.review_description,
-                            guideline_achieved=content.guideline_achieved,
-                        )
-                    )
-                    page_inference_resource: LLMPageInferenceResource = LLMPageInferenceResource()  # type:ignore
-                    page_inference_resource.page_number = extracted_pdf_content.page_number
-                    page_inference_resource.given_text = extracted_pdf_content.given_text
-                    page_inference_resource.given_tables = extracted_pdf_content.given_tables
-                    page_inference_resource.inference_response = content
-                    inference_result_resources.append(page_inference_resource)
+                # Store the extracted content for concurrent processing
+                page_data_list.append(extracted_pdf_content)
 
             doc.close()
+
+            # Create tasks for concurrent processing of each page
+            tasks = [
+                asyncio.create_task(self.process_page_content(extracted_pdf_content, design_bytes, conversation_id))
+                for extracted_pdf_content in page_data_list
+            ]
+
+            # Run tasks concurrently
+            inference_result_resources = await asyncio.gather(*tasks)
+
         except Exception as e:
             doc.close()
             raise
 
         return inference_result_resources
+
+    async def process_page_content(self, extracted_pdf_content, design_bytes, conversation_id):
+        content, number_of_token = await self.compare_design_against_page(
+            extracted_pdf_content.given_text,
+            extracted_pdf_content.given_tables,
+            design_bytes,
+            extracted_pdf_content.give_images,
+            self.openai_client,
+        )
+
+        if not content:
+            raise Exception(f"Failed to get structured content for conversation id: {conversation_id}")
+
+        await self.mongo_service.engine.save(
+            Review(
+                id=ObjectId(),
+                conversation_id=ObjectId(conversation_id),
+                page_number=extracted_pdf_content.page_number,
+                review_description=content.review_description,
+                guideline_achieved=content.guideline_achieved,
+            )
+        )
+
+        page_inference_resource = LLMPageInferenceResource()
+        page_inference_resource.page_number = extracted_pdf_content.page_number
+        page_inference_resource.given_text = extracted_pdf_content.given_text
+        page_inference_resource.given_tables = extracted_pdf_content.given_tables
+        page_inference_resource.inference_response = content
+
+        return page_inference_resource
 
     async def background_process_design(
         self,

@@ -1,9 +1,13 @@
+import os
 from typing import Dict, List, Tuple
 
 import fitz  # type:ignore
-from gmft.pdf_bindings import PyPDFium2Document  # type: ignore
+from gmft.pdf_bindings import PyPDFium2Document
+from torch import device  # type: ignore
 
 from app.models.llm_ready_page import LLMPageInferenceResource
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disable CUDA
 
 
 class PDFExtractionService:
@@ -32,10 +36,11 @@ class PDFExtractionService:
         self,
         pdf_bytes: bytes,
     ) -> Tuple[Dict[int, List[str]], PyPDFium2Document]:
-        from gmft.auto import TableDetector  # type:ignore
+        from gmft.auto import AutoFormatConfig, AutoTableFormatter, TableDetector, TATRDetectorConfig  # type:ignore
 
-        detector = TableDetector()
-        from gmft.auto import AutoFormatConfig, AutoTableFormatter
+        config = TATRDetectorConfig()
+        config.torch_device = "cpu"
+        detector = TableDetector(config=config)
 
         config = AutoFormatConfig()
         config.semantic_spanning_cells = True  # [Experimental] better spanning cells

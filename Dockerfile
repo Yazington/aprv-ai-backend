@@ -24,8 +24,7 @@ RUN pip install -r requirements.txt && \
 
 # Add a non-root user and change ownership of /app directory
 RUN adduser --disabled-password appuser && \
-    export APPUSER_UID=$(id -u appuser) && \
-    mkdir -p /app/data && chown -R $APPUSER_UID:$APPUSER_UID /app/data
+    chown -R appuser:appuser /app
 
 USER appuser
 
@@ -35,21 +34,13 @@ COPY ./app ./app
 # Expose the port your app runs on
 EXPOSE 9000
 
-# Set environment variables if needed at runtime
-ARG OPENAI_API_KEY
-ARG APRV_AI_API_KEY
-ARG GOOGLE_CLIENT_ID
-ARG MONGO_URL
-
-ENV OPENAI_API_KEY=${OPENAI_API_KEY}
-ENV APRV_AI_API_KEY=${APRV_AI_API_KEY}
-ENV GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-ENV MONGO_URL=${MONGO_URL}
+# Set environment variables if needed at runtime (removed secrets)
+# You can set default values here if necessary, or omit entirely
+# ENV SOME_ENV_VAR=default_value
 
 ################ PROFILING ################
 # CMD ["mprof", "run", "--include-children", "--output", "/tmp/memory_usage.dat", "--python", "gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:9000", "app.main:app", "--timeout", "240"]
 ################ PROFILING ################
 
-
+# Command to run your application
 CMD ["sh", "-c", "chown -R appuser:appuser /app/data && gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:9000 app.main:app --timeout 240"]
-# CMD ["gunicorn", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "main:app", "--bind", "0.0.0.0:9000", "--chdir", "./app", "--log-level", "debug", "--access-logfile", "-", "--error-logfile", "-", "--timeout", "240"]
