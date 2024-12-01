@@ -19,7 +19,7 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt && \
     pip install \
     git+https://github.com/openai/swarm.git \
-    git+https://github.com/HKUDS/LightRAG.git && \
+    git+https://github.com/HKUDS/LightRAG.git@6b070af92e014fbb43f4424c2bb3707467ef7e56 && \
     pip install gunicorn memory_profiler
 
 # Add a non-root user and change ownership of /app directory
@@ -43,4 +43,4 @@ EXPOSE 9000
 ################ PROFILING ################
 
 # Command to run your application
-CMD ["sh", "-c", "chown -R appuser:appuser /app/data && gunicorn -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:9000 app.main:app --timeout 240"]
+CMD ["sh", "-c", "chown -R appuser:appuser /app/data && gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:9000 app.main:app --timeout 240"]

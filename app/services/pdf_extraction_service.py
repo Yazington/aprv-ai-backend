@@ -5,6 +5,7 @@ import fitz  # type:ignore
 from gmft.pdf_bindings import PyPDFium2Document
 from torch import device  # type: ignore
 
+os.environ["TORCH_DEVICE"] = "cpu"
 from app.models.llm_ready_page import LLMPageInferenceResource
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # Disable CUDA
@@ -43,6 +44,7 @@ class PDFExtractionService:
         detector = TableDetector(config=config)
 
         config = AutoFormatConfig()
+        config.torch_device = "cpu"
         config.semantic_spanning_cells = True  # [Experimental] better spanning cells
         config.enable_multi_header = True  # multi-indices
 

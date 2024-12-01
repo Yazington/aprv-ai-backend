@@ -5,7 +5,7 @@ from typing import Annotated
 import numpy as np
 from fastapi import Depends
 from lightrag import LightRAG, QueryParam  # type:ignore
-from lightrag.llm import openai_complete_if_cache, openai_embedding  # type:ignore
+from lightrag.llm import gpt_4o_mini_complete, openai_complete_if_cache, openai_embedding  # type:ignore
 from lightrag.utils import EmbeddingFunc  # type:ignore
 from odmantic import ObjectId
 from tenacity import retry, stop_after_attempt, wait_random_exponential
@@ -22,7 +22,7 @@ class RagService:
         self.mongo_service = mongo_service
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
-    async def search_text_and_documents(self, prompt: str, conversation_id: ObjectId, mode="hybrid") -> str:
+    async def search_similar_text(self, prompt: str, conversation_id: ObjectId, mode="hybrid") -> str:
         user_rag_workdir = "./data"
         safe_conversation_id = re.sub(r"[^a-zA-Z0-9_-]", "_", str(conversation_id))
 
@@ -34,17 +34,18 @@ class RagService:
         conversation_dir = os.path.join(user_rag_workdir, safe_conversation_id)
         os.makedirs(conversation_dir, exist_ok=True)
 
-        # rag = LightRAG(
-        #     working_dir=conversation_dir,
-        #     llm_model_func=gpt_4o_mini_complete,  # Use gpt_4o_mini_complete LLM model
-        # )
         rag = LightRAG(
             working_dir=conversation_dir,
-            llm_model_func=llm_model_func,
-            embedding_func=EmbeddingFunc(embedding_dim=3072, max_token_size=8192, func=embedding_func),
+            llm_model_func=gpt_4o_mini_complete,  # Use gpt_4o_mini_complete LLM model
         )
+        # rag = LightRAG(
+        #     working_dir=conversation_dir,
+        #     llm_model_func=llm_model_func,
+        #     embedding_func=EmbeddingFunc(embedding_dim=3072, max_token_size=8192, func=embedding_func),
+        # )
 
         try:
+            # print(await rag.aquery(prompt, param=QueryParam(mode=mode)))
             response = await rag.aquery(prompt, param=QueryParam(mode=mode))
         except Exception as e:
             print(f"Error during query: {e}")
@@ -79,15 +80,15 @@ class RagService:
 
         user_dir = os.path.join(user_rag_workdir, safe_conversation_id)
         os.makedirs(user_dir, exist_ok=True)
-        # rag = LightRAG(
-        #     working_dir=user_dir,
-        #     llm_model_func=gpt_4o_mini_complete,  # Use gpt_4o_mini_complete LLM model
-        # )
         rag = LightRAG(
             working_dir=user_dir,
-            llm_model_func=llm_model_func,
-            embedding_func=EmbeddingFunc(embedding_dim=3072, max_token_size=8192, func=embedding_func),
+            llm_model_func=gpt_4o_mini_complete,  # Use gpt_4o_mini_complete LLM model
         )
+        # rag = LightRAG(
+        #     working_dir=user_dir,
+        #     llm_model_func=llm_model_func,
+        #     embedding_func=EmbeddingFunc(embedding_dim=3072, max_token_size=8192, func=embedding_func),
+        # )
 
         await rag.ainsert(processed_guideline_document_txt)
 
@@ -112,15 +113,15 @@ class RagService:
         os.makedirs(user_dir, exist_ok=True)
         print("type: ", type(processed_guideline_document_txt))
 
-        # rag = LightRAG(
-        #     working_dir=user_dir,
-        #     llm_model_func=gpt_4o_mini_complete,  # Use gpt_4o_mini_complete LLM model
-        # )
         rag = LightRAG(
             working_dir=user_dir,
-            llm_model_func=llm_model_func,
-            embedding_func=EmbeddingFunc(embedding_dim=3072, max_token_size=8192, func=embedding_func),
+            llm_model_func=gpt_4o_mini_complete,  # Use gpt_4o_mini_complete LLM model
         )
+        # rag = LightRAG(
+        #     working_dir=user_dir,
+        #     llm_model_func=llm_model_func,
+        #     embedding_func=EmbeddingFunc(embedding_dim=3072, max_token_size=8192, func=embedding_func),
+        # )
 
         # Split the document into smaller chunks
         # document_chunks = self.split_document_into_chunks(processed_guideline_document_txt)
@@ -139,15 +140,15 @@ class RagService:
     #     return await openai_embedding(texts, model="text-embedding-3-large", api_key=settings.settings.openai_api_key)
 
 
-async def llm_model_func(prompt, system_prompt=None, history_messages=[], **kwargs) -> str:
-    return await openai_complete_if_cache(
-        "gpt-4o-mini",
-        prompt,
-        system_prompt=system_prompt,
-        history_messages=history_messages,
-        api_key=settings.settings.openai_api_key,
-        **kwargs,
-    )
+# async def llm_model_func(prompt, system_prompt=None, history_messages=[], **kwargs) -> str:
+#     return await openai_complete_if_cache(
+#         "gpt-4o-mini",
+#         prompt,
+#         system_prompt=system_prompt,
+#         history_messages=history_messages,
+#         api_key=settings.settings.openai_api_key,
+#         **kwargs,
+#     )
 
 
 # Embedding function

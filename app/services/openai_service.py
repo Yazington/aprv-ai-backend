@@ -10,20 +10,19 @@ from tenacity import RetryError, retry, stop_after_attempt, wait_random_exponent
 from app.config.logging_config import logger
 from app.config.settings import settings
 from app.models.llm_ready_page import BrandGuidelineReviewResource
-from app.services.rag_service import RagService, get_rag_service
+from app.utils.llm_tools import LLMToolsService, get_llm_tools_service
 
-MODEL = "gpt-4o-mini"
+MODEL = "gpt-4o"
 MARKDOWN_POSTFIX_PROMPT = """
 Please give the answer with Markdown format if you really need to
 """
 
 
 class OpenAIClient:
-    def __init__(self, rag_service: RagService):
+    def __init__(self, llm_tools_service: LLMToolsService):
         if settings and settings:
             self.async_client = openai.AsyncClient(api_key=settings.openai_api_key)
-            # self.async_swarm = Swarm(client=self.async_client)
-            self.rag_service = rag_service
+        self.llm_tools_service = llm_tools_service
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def stream_openai_llm_response(
@@ -32,89 +31,85 @@ class OpenAIClient:
         conversation_id: str,
         model: str = MODEL,
     ) -> AsyncGenerator[str, None]:
-
-        tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": "search_text_and_documents",
-                    "description": """Document Uploads, Guidelines and all file related that have text are already
-                    uploaded using this function.Retrieve relevant segments from documents based on a user query.""",
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "prompt": {
-                                "type": "string",
-                                "description": """The prompt or query text for which RAG results are needed.
-                                If user needs to know what is in it, summarize it""",
-                            },
-                        },
-                        "required": ["prompt"],
-                        "additionalProperties": False,
-                    },
-                },
-            }
-        ]
-
         stream = await self.async_client.chat.completions.create(  # type: ignore
             model=model,
             messages=messages,
-            tools=tools,
+            tools=LLMToolsService.AVAILABLE_TOOLS,
             tool_choice="auto",
+            parallel_tool_calls=False,
             stream=True,
         )
 
-        cumulative_arguments = ""
+        tool_call_arguments_from_llm = []
+        has_tool_call = False
+        function_name = None
 
-        is_calling_function = False
         async for chunk in stream:
-            tool_call_info = None
-            if chunk.choices[0].delta.tool_calls:
-                tool_call_info = chunk.choices[0].delta.tool_calls[0]
-
-            if tool_call_info and tool_call_info.function.name == "search_text_and_documents" or is_calling_function:
-                # Accumulate JSON arguments
-                is_calling_function = True
-                if tool_call_info:
-                    cumulative_arguments += tool_call_info.function.arguments
-                # print(cumulative_arguments)
-
-                # Check if the JSON is complete
-                if cumulative_arguments.startswith("{") and cumulative_arguments.endswith("}"):
-                    break  # Exit the loop after accumulating complete JSON
+            is_openai_response_tool_call = (
+                chunk.choices[0].delta.tool_calls
+                and len(chunk.choices[0].delta.tool_calls) > 0
+            )
+            if is_openai_response_tool_call:
+                has_tool_call = True
+                tool_call_arguments_from_llm.append(
+                    chunk.choices[0].delta.tool_calls[0].function.arguments
+                )
+                if chunk.choices[0].delta.tool_calls[0].function.name:
+                    function_name = chunk.choices[0].delta.tool_calls[0].function.name
+                    yield "\n\n[TOOL_USAGE_APRV_AI]:" + function_name.replace("_", " ")
+                continue
             else:
                 content = chunk.choices[0].delta.content or ""
                 yield content
 
-        # After exiting the loop, process the complete JSON
-        if cumulative_arguments:
+        allowed_function_names: List[str] = [
+            tool["function"]["name"] for tool in self.llm_tools_service.AVAILABLE_TOOLS
+        ]
+
+        if has_tool_call and function_name:
             try:
-                arguments = json.loads(cumulative_arguments)
-                # print(arguments)
-                cumulative_arguments = ""  # Reset for future usage
-                # print(f"Complete Tool call arguments: {arguments}")
-                logger.info("llm tool prompt: " + arguments["prompt"])
-                # Execute the RAG function with extracted arguments
-                rag_result = await self.rag_service.search_text_and_documents(arguments["prompt"], ObjectId(conversation_id))
-                # print("rag results: ", rag_result)
-                # Prepare a message with the RAG result to send back to the LLM
-                new_messages = messages + [{"role": "system", "content": f"RAG result: {rag_result}"}]
+                arguments = json.loads("".join(tool_call_arguments_from_llm))
 
-                # Restart the stream with updated messages including the RAG result
-                stream = await self.async_client.chat.completions.create(
-                    model=model,
-                    messages=new_messages,  # type: ignore
-                    stream=True,
+                # Validate the function name
+                if function_name not in allowed_function_names:
+                    raise ValueError(f"Unauthorized or invalid method call: {function_name}")
+
+                logger.info(f"Complete Tool call arguments: {arguments}")
+                logger.info("llm tool prompt: " + arguments.get("prompt", ""))
+
+                # Dynamically get the method using reflection
+                method_to_call = getattr(self.llm_tools_service, function_name, None)
+
+
+                print("function name: ", function_name)
+                print("all messages: ", messages)
+                if function_name == "get_current_conversation_id":
+                    tool_result = "conversation_id: " + conversation_id
+
+                elif method_to_call and callable(method_to_call):
+                    # Call the method with unpacked arguments
+                    tool_result = await method_to_call(**arguments)
+                else:
+                    raise AttributeError(
+                        f"Method '{function_name}' not found or not callable in llm_tools_service"
+                    )
+                print("tool_result: ", tool_result)
+                new_messages = messages + [
+                    {"role": "user", "content": f"'calling this tool:{function_name}' gave us: {tool_result}"}
+                ]
+                print('all messages: ', new_messages)
+                yield "\n\n[TOOL_USAGE_APRV_AI_DONE]:" + " ".join(function_name.split("_")) + "\n\n"
+
+                nested_generator = self.stream_openai_llm_response(
+                    new_messages, conversation_id, model
                 )
-
-                # Yield content from the new stream
-                async for chunk in stream:
-                    content = chunk.choices[0].delta.content or ""
-
+                async for content in nested_generator:
                     yield content
+            except Exception as e:
+                logger.error(f"Error during tool call execution: {str(e)}")
+                raise
 
-            except json.JSONDecodeError:
-                print("Failed to decode JSON arguments.")
+
 
     @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
     async def get_openai_multi_images_response(
@@ -172,7 +167,5 @@ class OpenAIClient:
             raise
 
 
-def get_openai_client(
-    rag_service: Annotated[RagService, Depends(get_rag_service)],
-):
-    return OpenAIClient(rag_service)
+def get_openai_client(llm_tools_service: Annotated[LLMToolsService, Depends(get_llm_tools_service)]):
+    return OpenAIClient(llm_tools_service)

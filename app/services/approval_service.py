@@ -238,9 +238,10 @@ class ApprovalService:
 
         content: Union[BrandGuidelineReviewResource | None] = await openai_client.get_openai_multi_images_response(
             """
-    You are a brand licensing professional reviewing designs against brand licensing guidelines. You want to ensure that the design respects everything
+    You are a brand licensing assistant reviewing designs against brand licensing guidelines. You want to ensure that the design respects everything
     from the brand guideline content that would be given to you. You are the one reporting if there is any issues to the designer. You have to be detailed and concise
     and you have to make sure that the design respects every single word/line/sentence and idea that is GIVEN TO YOU.
+    You are an assistant that evaluates design compliance based on provided documents. If the design is not available, do not attempt to generate a compliance score. Instead, politely inform the user that the design is required to perform the evaluation.
             """,
             prompt,
             design_bytes,

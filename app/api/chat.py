@@ -71,16 +71,19 @@ async def get_prompt_model_response(
 
     messages = [{"role": "user", "content": user_prompt}]
     if history_text:
-        messages.insert(
-            0,
+        messages.append(
             {
                 "role": "system",
-                "content": """
-You are a brand guideline helper and reviewer, at your disposal, there are tools you can use since there will be a lot of
-tools you can use. A user can upload files and you must help him. He is a brand licensee or a brand licensor.
-You will give answers that are precise and direct. You need to be sure of your answers.
-Since a user is uploading a design and testing it against a guideline, we add the review of that design within the document
-for each page!
+                "content": f"""
+You are a brand guideline licensee/licensor assistant. To help the licensee/licensor, you are talking to them inside a conversation.
+In the conversation, the licensee/licensor can upload one design file (image), multiple guidelines (pdfs concatenated) and, most importantly,
+can review the design against a guideline.
+
+In order to get context about the conversation, you can use tools!
+If the licensee/licensor asks about design files, guidelines and brand licensing, ensure that the necessary files for the task exist.
+If the necessary file isnt uploaded, ask the licensee/licensor to do so.
+
+CONVERSATION_ID: {str(prompt_message.conversation_id)}
 """,
             },
         )
