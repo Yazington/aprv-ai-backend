@@ -5,27 +5,22 @@ from fastapi.responses import JSONResponse
 from app.api import auth, chat, conversation, upload
 from app.middlewares.token_validation_middleware import TokenValidationMiddleware
 
+# Initialize FastAPI application with metadata
 app = FastAPI(
     title="APRV AI Backend",
     description="Backend for APRV AI Chat Application",
     version="1.0.0",
 )
 
-# # Configure CORS
-# origins = [
-#     "http://localhost",
-#     "http://localhost:3000",  # Adjust based on your frontend's address
-#     # Add other origins if necessary
-# ]
 
-
+# Custom exception handler for HTTP errors
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
         headers={
-            "Access-Control-Allow-Origin": "*",  # Replace with your allowed origins
+            "Access-Control-Allow-Origin": "*",  # Allow all origins for error responses
             "Access-Control-Allow-Credentials": "true",
             "Access-Control-Allow-Methods": "*",
             "Access-Control-Allow-Headers": "*",
@@ -33,22 +28,25 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
     )
 
 
+# Configure CORS middleware to allow cross-origin requests
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:4173",
-        "http://localhost:8081",
-        "https://app.aprv.ai",
-    ],  # Replace with your frontend URL
+        "http://localhost:5173",  # Local development
+        "http://localhost:4173",  # Local preview
+        "http://localhost:8081",  # Additional local port
+        "https://app.aprv.ai",  # Production environment
+    ],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allow all headers, including Authorization
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
 )
 
+# Add token validation middleware for authentication
 app.add_middleware(TokenValidationMiddleware)
 
-app.include_router(chat.router)
-app.include_router(upload.router)
-app.include_router(auth.router)
-app.include_router(conversation.router)
+# Include all API routers
+app.include_router(chat.router)  # Chat-related endpoints
+app.include_router(upload.router)  # File upload endpoints
+app.include_router(auth.router)  # Authentication endpoints
+app.include_router(conversation.router)  # Conversation management endpoints

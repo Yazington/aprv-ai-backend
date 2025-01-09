@@ -14,6 +14,7 @@ from app.services.message_service import MessageService, get_message_service
 from app.services.mongo_service import MongoService, get_mongo_service
 from app.services.openai_service import OpenAIClient, get_openai_client
 
+# API router for conversation-related endpoints
 router = APIRouter(
     prefix="/conversations",
     tags=["Conversation"],
@@ -24,6 +25,16 @@ router = APIRouter(
 async def get_conversations_by_user_id(
     conversation_service: Annotated[ConversationService, Depends(get_conversation_service)], user_id: str = Query(None)
 ):
+    """
+    Get all conversations for a specific user
+
+    Args:
+        conversation_service: Injected ConversationService dependency
+        user_id: ID of the user to get conversations for
+
+    Returns:
+        List of conversations associated with the user
+    """
     return await conversation_service.get_conversations_by_user_id(user_id)
 
 
@@ -31,6 +42,16 @@ async def get_conversations_by_user_id(
 async def get_conversation_by_conversation_id(
     conversation_service: Annotated[ConversationService, Depends(get_conversation_service)], conversation_id: str = Query(None)
 ):
+    """
+    Get a specific conversation by its ID
+
+    Args:
+        conversation_service: Injected ConversationService dependency
+        conversation_id: ID of the conversation to retrieve
+
+    Returns:
+        The requested conversation object
+    """
     return await conversation_service.get_conversation_by_conversation_id(conversation_id)
 
 
@@ -38,6 +59,16 @@ async def get_conversation_by_conversation_id(
 async def get_conversations_messages(
     message_service: Annotated[MessageService, Depends(get_message_service)], conversation_id: str = Query(None)
 ):
+    """
+    Get all messages for a specific conversation
+
+    Args:
+        message_service: Injected MessageService dependency
+        conversation_id: ID of the conversation to get messages for
+
+    Returns:
+        List of messages in the conversation
+    """
     return await message_service.get_conversations_messages(conversation_id)
 
 
@@ -47,7 +78,17 @@ async def process_design(
     doc_and_infer_service: Annotated[ApprovalService, Depends(get_approval_service)],
     conversation_id: str = Query(None),
 ):
+    """
+    Start a background process to analyze and validate a design
 
+    Args:
+        background_tasks: FastAPI BackgroundTasks for running async tasks
+        doc_and_infer_service: Injected ApprovalService dependency
+        conversation_id: ID of the conversation containing the design
+
+    Returns:
+        Immediate response indicating process has started
+    """
     if not conversation_id:
         return {"error": "conversation_id is required"}
 
@@ -60,7 +101,16 @@ async def process_design(
 
 @router.get("/process-status")
 async def process_status(mongo_service: Annotated[MongoService, Depends(get_mongo_service)], conversation_id: str = Query(None)):
+    """
+    Check the status of a design processing task
 
+    Args:
+        mongo_service: Injected MongoService dependency
+        conversation_id: ID of the conversation to check status for
+
+    Returns:
+        JSONResponse with task status and ID
+    """
     if not conversation_id:
         return JSONResponse("Please provide a conversation_id", status_code=400)
 
@@ -78,7 +128,16 @@ async def process_status(mongo_service: Annotated[MongoService, Depends(get_mong
 
 @router.get("/process-result")
 async def get_process_result(mongo_service: Annotated[MongoService, Depends(get_mongo_service)], task_id: str = Query(None)):
+    """
+    Get the results of a completed design processing task
 
+    Args:
+        mongo_service: Injected MongoService dependency
+        task_id: ID of the task to get results for
+
+    Returns:
+        List of review results for the task
+    """
     if not task_id:
         return JSONResponse("Please provide a task_id", status_code=400)
 
@@ -95,7 +154,16 @@ async def get_process_result(mongo_service: Annotated[MongoService, Depends(get_
 
 @router.get("/conversation-reviews")
 async def get_conversation_reviews(mongo_service: Annotated[MongoService, Depends(get_mongo_service)], conversation_id: str = Query(None)):
+    """
+    Get all reviews associated with a conversation
 
+    Args:
+        mongo_service: Injected MongoService dependency
+        conversation_id: ID of the conversation to get reviews for
+
+    Returns:
+        List of reviews for the conversation
+    """
     conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
     task = None
     if conversation.design_process_task_id:

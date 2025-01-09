@@ -22,6 +22,11 @@ router = APIRouter(
 
 
 # @profile
+# Handles image uploads and associates them with conversations
+# - Creates new conversation if no conversation_id provided
+# - Updates existing conversation if conversation_id provided
+# - Stores image in MongoDB GridFS
+# - Returns file_id and conversation_id
 @router.post("/image")
 async def upload_image(
     file: UploadFile,
@@ -62,6 +67,14 @@ async def upload_image(
 
 
 # @profile
+# Handles PDF uploads and text extraction
+# - Creates new conversation if no conversation_id provided
+# - Updates existing conversation if conversation_id provided
+# - Merges PDFs if concatenating with existing guidelines
+# - Extracts tables and text using PDF extraction service
+# - Stores PDF in MongoDB GridFS
+# - Creates message with upload notification
+# - Returns file_id and conversation_id
 @router.post("/pdf")
 async def upload_pdf(
     file: UploadFile,
@@ -166,6 +179,10 @@ async def upload_pdf(
 
 
 # @profile
+# Retrieves all files associated with a conversation
+# - Requires conversation_id parameter
+# - Returns design file and guidelines file metadata
+# - Returns FileResponse object with file names and sizes
 @router.get("")
 async def get_all_conversation_files(
     mongo_service: Annotated[MongoService, Depends(get_mongo_service)], conversation_id: Optional[str] = Query(None)
