@@ -236,7 +236,7 @@ class ApprovalService:
             "3. guideline_achieved (True, False, or None): Rate how suitable the design is based on the Brand Guideline. If the Brand Guideline isn’t relevant, return None."
         )
 
-        content: Union[BrandGuidelineReviewResource | None] = await openai_client.get_openai_multi_images_response(
+        content: Union[BrandGuidelineReviewResource, None] = await openai_client.get_openai_multi_images_response(
             """
     You are a brand licensing assistant reviewing designs against brand licensing guidelines. You want to ensure that the design respects everything
     from the brand guideline content that would be given to you. You are the one reporting if there is any issues to the designer. You have to be detailed and concise
