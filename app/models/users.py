@@ -1,8 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from odmantic import Field, Index, Model, ObjectId
-from odmantic.query import asc
+from beanie import Document, Indexed, PydanticObjectId
 from pydantic import BaseModel
 
 
@@ -42,12 +41,17 @@ class GoogleAuthInfo(BaseModel):
         )
 
 
-class User(Model):
+class User(Document):
     name: Optional[str] = None
-    email: str
-    all_conversations_ids: Optional[List[ObjectId]] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    modified_at: datetime = Field(default_factory=datetime.utcnow)
+    email: Indexed(str)  # Indexed field for better query performance
+    all_conversations_ids: List[PydanticObjectId] = []  # List of conversation IDs
+    created_at: datetime = datetime.utcnow()
+    modified_at: datetime = datetime.utcnow()
     google_auth: GoogleAuthInfo
     current_access_token: Optional[str] = None
-    model_config = {"indexes": lambda: [Index(asc(User.email), asc(User.created_at), asc(User.modified_at))]}  # type: ignore
+
+    class Settings:
+        name = "users"
+        indexes = [
+            [("email", 1), ("created_at", 1), ("modified_at", 1)]
+        ]

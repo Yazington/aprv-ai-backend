@@ -20,8 +20,7 @@ from app.models.llm_ready_page import BrandGuidelineReviewResource
 from app.utils.llm_tools import LLMToolsService, get_llm_tools_service
 
 # Default model to use for OpenAI API calls
-# MODEL = "gpt-4o"
-MODEL = "gpt-4o-mini-2024-07-18"
+MODEL = "gpt-4"
 # Prompt suffix to encourage Markdown formatting in responses
 MARKDOWN_POSTFIX_PROMPT = """
 Please give the answer with Markdown format if you really need to
@@ -113,7 +112,6 @@ class OpenAIClient:
             messages=messages,
             tools=LLMToolsService.AVAILABLE_TOOLS,
             tool_choice="auto",
-            parallel_tool_calls=False,
             stream=True,
         )
 

@@ -10,11 +10,12 @@ from openai.types.chat import ChatCompletionMessageParam
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from odmantic import ObjectId
+from beanie import PydanticObjectId
 
 from app.config.logging_config import logger
 from app.models.create_prompt_request import CreatePromptRequest
 from app.models.message import Message
+from app.models.conversation import Conversation
 from app.services.conversation_service import ConversationService, get_conversation_service
 from app.services.message_service import MessageService, get_message_service
 from app.services.mongo_service import MongoService, get_mongo_service
@@ -48,22 +49,72 @@ async def create_prompt(
         JSON response containing the created prompt details
     """
 
-    # Get user ID from request and create new message
-    user_id = ObjectId(request.state.user_id)
-    message = await message_service.create_message(create_prompt_request.prompt, ObjectId(create_prompt_request.conversation_id), user_id)
+    # Get user ID from request
+    user_id = request.state.user_id  # Already a string from auth middleware
 
-    # Handle new conversation creation if no conversation ID provided
-    if not create_prompt_request.conversation_id:
-        conversation = await conversation_service.create_conversation(message, user_id)
-        message.conversation_id = conversation.id
-    else:
-        # Update existing conversation with new message
-        message.conversation_id = ObjectId(create_prompt_request.conversation_id)
-        await conversation_service.update_conversation(message.conversation_id, message)
+    try:
+        logger.info(f"Creating prompt with conversation_id: {create_prompt_request.conversation_id}")
+        
+        conversation = None
+        conversation_id = create_prompt_request.conversation_id
 
-    # Save message to database and return response
-    await mongo_service.engine.save(message)
-    return {"prompt": message.content, "message_id": str(message.id), "conversation_id": str(message.conversation_id)}
+        if conversation_id is None or not conversation_id.strip():
+            try:
+                # Create new conversation first
+                logger.info("Creating new conversation")
+                conversation = Conversation(
+                    all_messages_ids=[],
+                    user_id=user_id,
+                    thumbnail_text=create_prompt_request.prompt[:40]
+                )
+                await conversation.save()
+                conversation_id = str(conversation.id)
+                logger.info(f"Created new conversation with ID: {conversation_id}")
+
+                # Create message with new conversation ID
+                logger.info(f"Creating message with new conversation ID: {conversation_id}")
+                message = await message_service.create_message(
+                    create_prompt_request.prompt,
+                    conversation_id,
+                    user_id
+                )
+                logger.info(f"Created message with ID: {message.id}")
+
+                # Update conversation with message ID
+                conversation.all_messages_ids = [message.id]  # Already a PydanticObjectId
+                conversation.thumbnail_text = message.content[:40]
+                await conversation.save()
+                logger.info("Updated conversation with message ID")
+            except Exception as e:
+                logger.error(f"Error creating new conversation: {str(e)}")
+                raise HTTPException(status_code=500, detail="Failed to create conversation")
+        else:
+            # Handle existing conversation
+            logger.info(f"Using existing conversation: {conversation_id}")
+            conversation = await conversation_service.get_conversation_by_conversation_id(conversation_id)
+            if not conversation:
+                raise HTTPException(status_code=404, detail="Conversation not found")
+
+            # Create message with existing conversation ID
+            logger.info(f"Creating message with existing conversation ID: {conversation_id}")
+            message = await message_service.create_message(
+                create_prompt_request.prompt,
+                conversation_id,
+                user_id
+            )
+
+            # Update existing conversation
+            conversation.all_messages_ids.append(message.id)  # Already a PydanticObjectId
+            conversation.thumbnail_text = message.content[:40]
+            await conversation.save()
+            logger.info("Updated existing conversation with message")
+        
+        logger.info(f"Message created successfully with ID: {message.id}")
+        logger.info("Successfully created prompt and message")
+        return {"prompt": message.content, "message_id": str(message.id), "conversation_id": str(message.conversation_id)}
+    except Exception as e:
+        logger.error(f"Error in create_prompt: {str(e)}")
+        raise
 
 
 @router.get("/generate/{message_id}")
@@ -92,11 +143,42 @@ async def get_prompt_model_response(
     """
     # Get user ID and retrieve the original prompt message
     user_id = request.state.user_id
-    prompt_message = await message_service.retrieve_message_by_id(ObjectId(message_id))
-
-    # Validate prompt message exists
-    if prompt_message is None:
-        raise HTTPException(status_code=404, detail=f"Failed to generate response as initial prompt was not found: {message_id}")
+    try:
+        # Log the message ID we're trying to find
+        logger.info(f"Attempting to retrieve message with ID: {message_id}")
+        
+        # Try to convert string ID to PydanticObjectId and log the result
+        try:
+            object_id = PydanticObjectId(message_id)
+            logger.info(f"Successfully converted to ObjectId: {object_id}")
+        except Exception as e:
+            logger.error(f"Failed to convert message_id to ObjectId: {str(e)}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid message ID format: {message_id}"
+            )
+        
+        # Try to find message by ID
+        prompt_message = await Message.get(object_id)
+        
+        # Log the result of the database query
+        if prompt_message is None:
+            logger.error(f"Message not found in database with ID: {message_id}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Message not found in database: {message_id}"
+            )
+        
+        logger.info(f"Successfully found message: {prompt_message.id}, content: {prompt_message.content[:50]}...")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error retrieving message: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving message: {str(e)}"
+        )
 
     # Process user prompt and calculate token count
     user_prompt = prompt_message.content
@@ -108,7 +190,7 @@ async def get_prompt_model_response(
         return HTTPException(status_code=403, detail="Failed to retrieve message history")
 
     # Retrieve conversation history and calculate tokens
-    history_text = await message_service.retrieve_message_history(prompt_message.conversation_id, prompt_message.id)
+    history_text = await message_service.retrieve_message_history(prompt_message.conversation_id, str(prompt_message.id))
     history_tokens = message_service.get_tokenized_message_count(history_text)
 
     # Truncate text if necessary to fit token limits
@@ -156,30 +238,36 @@ CONVERSATION_ID: {str(prompt_message.conversation_id)}
         """
         full_response = ""
         # Create message object to store the final response
-        full_response_message = Message(
-            id=ObjectId(),
-            content=full_response,
-            is_from_human=False,
-            user_id=ObjectId(user_id),
-            conversation_id=prompt_message.conversation_id,
-        )
+        try:
+            full_response_message = Message(
+                content=full_response,
+                is_from_human=False,
+                user_id=str(user_id),
+                conversation_id=PydanticObjectId(prompt_message.conversation_id),
+            )
 
-        # Stream response from OpenAI
-        async for chunk in openai_client.stream_openai_llm_response(messages, str(prompt_message.conversation_id)):
-            if chunk:
-                full_response += chunk
-                # Yield each chunk as it's received
-                yield f"data: {json.dumps({'content': chunk})}\n\n"
+            # Stream response from OpenAI
+            async for chunk in openai_client.stream_openai_llm_response(messages, str(prompt_message.conversation_id)):
+                if chunk:
+                    full_response += chunk
+                    # Yield each chunk as it's received
+                    yield f"data: {json.dumps({'content': chunk})}\n\n"
 
-        # Save final response to database
-        full_response_message.content = full_response
-        message = await mongo_service.engine.save(full_response_message)
+            # Save final response to database
+            full_response_message.content = full_response
+            message = await full_response_message.save()
+            logger.info(f"Saved response message with ID: {message.id}")
 
-        # Update conversation with final response
-        await conversation_service.update_conversation(prompt_message.conversation_id, message)
+            # Update conversation with final response
+            await conversation_service.update_conversation(str(prompt_message.conversation_id), message)
 
-        # Signal end of streaming
-        yield f"data: {json.dumps({'content': '[DONE-STREAMING-APRV-AI]'})}\n\n"
+            # Signal end of streaming
+            yield f"data: {json.dumps({'content': '[DONE-STREAMING-APRV-AI]'})}\n\n"
+        except Exception as e:
+            logger.error(f"Error in event_generator: {str(e)}")
+            # Signal error to client
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            raise
 
     # Return streaming response with text/event-stream content type
     return StreamingResponse(event_generator(), media_type="text/event-stream")

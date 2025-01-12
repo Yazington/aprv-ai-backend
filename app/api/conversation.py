@@ -35,7 +35,10 @@ async def get_conversations_by_user_id(
     Returns:
         List of conversations associated with the user
     """
-    return await conversation_service.get_conversations_by_user_id(user_id)
+    conversations = await conversation_service.get_conversations_by_user_id(user_id)
+    if conversations is None:
+        return JSONResponse(content=[], status_code=200)
+    return JSONResponse(content=jsonable_encoder(conversations), status_code=200)
 
 
 @router.get("/conversation")
@@ -52,7 +55,10 @@ async def get_conversation_by_conversation_id(
     Returns:
         The requested conversation object
     """
-    return await conversation_service.get_conversation_by_conversation_id(conversation_id)
+    conversation = await conversation_service.get_conversation_by_conversation_id(conversation_id)
+    if conversation is None:
+        return JSONResponse(content=None, status_code=404)
+    return JSONResponse(content=jsonable_encoder(conversation), status_code=200)
 
 
 @router.get("/conversation-messages")
@@ -69,7 +75,10 @@ async def get_conversations_messages(
     Returns:
         List of messages in the conversation
     """
-    return await message_service.get_conversations_messages(conversation_id)
+    messages = await message_service.get_conversations_messages(conversation_id)
+    if messages is None:
+        return JSONResponse(content=[], status_code=200)
+    return JSONResponse(content=jsonable_encoder(messages), status_code=200)
 
 
 @router.get("/process-design")
@@ -114,12 +123,12 @@ async def process_status(mongo_service: Annotated[MongoService, Depends(get_mong
     if not conversation_id:
         return JSONResponse("Please provide a conversation_id", status_code=400)
 
-    conversation_of_task = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
+    conversation_of_task = await Conversation.find_one(Conversation.id == ObjectId(conversation_id))
 
     if not conversation_of_task.design_process_task_id:
         return JSONResponse("conversation doesn't have a task", status_code=400)
 
-    task_of_conversation = await mongo_service.engine.find_one(Task, Task.id == conversation_of_task.design_process_task_id)
+    task_of_conversation = await Task.find_one(Task.id == conversation_of_task.design_process_task_id)
     if task_of_conversation.status == TaskStatus.IN_PROGRESS.name:
         return JSONResponse(jsonable_encoder({"task_id": str(task_of_conversation.id)}), status_code=202)
     if task_of_conversation.status == TaskStatus.COMPLETE.name:
@@ -141,7 +150,7 @@ async def get_process_result(mongo_service: Annotated[MongoService, Depends(get_
     if not task_id:
         return JSONResponse("Please provide a task_id", status_code=400)
 
-    task_of_conversation = await mongo_service.engine.find_one(Task, Task.id == ObjectId(task_id))
+    task_of_conversation = await Task.find_one(Task.id == ObjectId(task_id))
     if not task_of_conversation.generated_txt_id:
         return JSONResponse(
             jsonable_encoder(
@@ -149,7 +158,8 @@ async def get_process_result(mongo_service: Annotated[MongoService, Depends(get_
             ),
             status_code=500,
         )
-    return await mongo_service.engine.find(Review, Review.conversation_id == task_of_conversation.conversation_id)
+    reviews = await Review.find(Review.conversation_id == task_of_conversation.conversation_id).to_list()
+    return reviews
 
 
 @router.get("/conversation-reviews")
@@ -164,12 +174,18 @@ async def get_conversation_reviews(mongo_service: Annotated[MongoService, Depend
     Returns:
         List of reviews for the conversation
     """
-    conversation = await mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
-    task = None
-    if conversation.design_process_task_id:
-        task = await mongo_service.engine.find_one(Task, Task.id == conversation.design_process_task_id)
-    if not task or task.status == TaskStatus.COMPLETE:
-        return JSONResponse("Task Incomplete", status_code=400)
     if not conversation_id:
         return JSONResponse("Please provide a conversation_id", status_code=400)
-    return await mongo_service.engine.find(Review, Review.conversation_id == ObjectId(conversation_id))
+
+    conversation = await Conversation.find_one(Conversation.id == ObjectId(conversation_id))
+    if not conversation:
+        return JSONResponse("Conversation not found", status_code=404)
+
+    task = None
+    if conversation.design_process_task_id:
+        task = await Task.find_one(Task.id == conversation.design_process_task_id)
+    if not task or task.status == TaskStatus.COMPLETE:
+        return JSONResponse("Task Incomplete", status_code=400)
+
+    reviews = await Review.find(Review.conversation_id == ObjectId(conversation_id)).to_list()
+    return reviews

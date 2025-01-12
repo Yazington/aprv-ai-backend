@@ -2,8 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from odmantic import Field, Index, Model, ObjectId
-from odmantic.query import asc
+from beanie import Document, Indexed, PydanticObjectId
 
 
 class TaskStatus(Enum):
@@ -12,10 +11,19 @@ class TaskStatus(Enum):
     FAILED = 2
 
 
-class Task(Model):
-    conversation_id: Optional[ObjectId] = None  # Make it optional
+class Task(Document):
+    conversation_id: Optional[PydanticObjectId] = None  # Make it optional
     status: str
-    generated_txt_id: Optional[ObjectId] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    modified_at: datetime = Field(default_factory=datetime.utcnow)
-    model_config = {"indexes": lambda: [Index(asc(Task.conversation_id), asc(Task.created_at), asc(Task.modified_at))]}  # type: ignore
+    generated_txt_id: Optional[PydanticObjectId] = None
+    created_at: datetime = datetime.utcnow()
+    modified_at: datetime = datetime.utcnow()
+
+    class Settings:
+        name = "tasks"
+        indexes = [
+            [
+                ("conversation_id", 1),
+                ("created_at", 1),
+                ("modified_at", 1)
+            ]
+        ]

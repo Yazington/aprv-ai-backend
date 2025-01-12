@@ -141,15 +141,13 @@ class ApprovalService:
         if not content:
             raise Exception(f"Failed to get structured content for conversation id: {conversation_id}")
 
-        await self.mongo_service.engine.save(
-            Review(
-                id=ObjectId(),
-                conversation_id=ObjectId(conversation_id),
-                page_number=extracted_pdf_content.page_number,
-                review_description=content.review_description,
-                guideline_achieved=content.guideline_achieved,
-            )
+        review = Review(
+            conversation_id=ObjectId(conversation_id),
+            page_number=extracted_pdf_content.page_number,
+            review_description=content.review_description,
+            guideline_achieved=content.guideline_achieved,
         )
+        await review.save()
 
         page_inference_resource = LLMPageInferenceResource()
         page_inference_resource.page_number = extracted_pdf_content.page_number
@@ -175,29 +173,28 @@ class ApprovalService:
         """
         logger.info("Starting background task for conversation_id: %s", conversation_id)
 
-        conversation = await self.mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
+        conversation = await Conversation.find_one(Conversation.id == ObjectId(conversation_id))
 
         task = await self.create_task(conversation_id)
 
         if not conversation:
             task.status = TaskStatus.FAILED.name
             logger.error("task failed: no conversation for conversation_id ", str(conversation_id))
-            await self.mongo_service.engine.save(task)
+            await task.save()
             return
 
         try:
-
             contract_id = conversation.guidelines_id
             design_id = conversation.design_id
 
             if not contract_id or not design_id:
                 task.status = TaskStatus.FAILED.name
                 logger.error("task failed: no contract or design for conversation_id ", str(conversation_id))
-                await self.mongo_service.engine.save(task)
+                await task.save()
                 return
 
             conversation.design_process_task_id = task.id
-            await self.mongo_service.engine.save(conversation)
+            await conversation.save()
 
             contract_bytes, design_bytes = self.get_existing_files_as_bytes(self.mongo_service, contract_id, design_id)
 
@@ -221,13 +218,13 @@ class ApprovalService:
             # Update the task with success status and store the text file ID
             task.status = TaskStatus.COMPLETE.name
             task.generated_txt_id = txt_file_id
-            await self.mongo_service.engine.save(task)
+            await task.save()
             await self.rag_service.insert_to_rag(conversation_id)
         except Exception as e:
             # Update the task with a failed status if an exception occurs
             task.status = TaskStatus.FAILED.name
             logger.error(f"Task failed: {str(e)}")
-            await self.mongo_service.engine.save(task)
+            await task.save()
 
     def get_existing_files_as_bytes(self, mongo_service: MongoService, guidelines_id, design_id):
         """
@@ -272,8 +269,11 @@ class ApprovalService:
             raise Exception("No conversation id provided for processing")
 
         try:
-            task = Task(id=ObjectId(), conversation_id=ObjectId(conversation_id), status=TaskStatus.IN_PROGRESS.name)
-            await self.mongo_service.engine.save(task)
+            task = Task(
+                conversation_id=ObjectId(conversation_id),
+                status=TaskStatus.IN_PROGRESS.name
+            )
+            await task.save()
             logger.info("Task saved successfully")
         except Exception as e:
             logger.error("Error saving task to DB: %s", str(e))

@@ -181,7 +181,7 @@ class LLMToolsService:
 
         Returns:
             str|None: Design file ID if found, None otherwise"""
-        conversation = await self.mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
+        conversation = await Conversation.get(ObjectId(conversation_id))
         if not conversation or not conversation.design_id:
             return None
         return conversation.design_id
@@ -194,7 +194,7 @@ class LLMToolsService:
 
         Returns:
             str|None: Guidelines file ID if found, None otherwise"""
-        conversation = await self.mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
+        conversation = await Conversation.get(ObjectId(conversation_id))
         if not conversation or not conversation.guidelines_id:
             return None
         return conversation.guidelines_id
@@ -207,10 +207,10 @@ class LLMToolsService:
 
         Returns:
             str|None: Review file ID if found, None otherwise"""
-        conversation = await self.mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
+        conversation = await Conversation.get(ObjectId(conversation_id))
         if not conversation or not conversation.design_process_task_id:
             return None
-        task = await self.mongo_service.engine.find_one(Task, Task.id == conversation.design_process_task_id)
+        task = await Task.get(conversation.design_process_task_id)
         if not task:
             return None
         return task.generated_txt_id
@@ -224,8 +224,9 @@ class LLMToolsService:
 
         Returns:
             Review|None: Review object if found, None otherwise"""
-        review_at_given_page = await self.mongo_service.engine.find_one(
-            Review, Review.conversation_id == conversation_id and Review.page_number == page_number
+        review_at_given_page = await Review.find_one(
+            Review.conversation_id == conversation_id,
+            Review.page_number == page_number
         )
         if not review_at_given_page:
             return None

@@ -1,8 +1,8 @@
 import datetime
 from typing import Annotated, Optional
+from uuid import uuid4
 
 from fastapi import Depends
-from odmantic import ObjectId
 from pymongo.errors import PyMongoError
 
 from app.models.users import GoogleAuthInfo, User
@@ -35,8 +35,8 @@ class UserService:
             Exception: If there's a database error during the operation.
         """
         try:
-            # Query MongoDB using the email field as the search criteria
-            return await self.mongo_service.engine.find_one(User, User.email == email)
+            # Query MongoDB using Beanie's find_one method
+            return await User.find_one(User.email == email)
         except PyMongoError as e:
             # Convert MongoDB-specific error to a generic exception
             raise Exception("Database error during fetching user by email") from e
@@ -58,10 +58,13 @@ class UserService:
             Exception: If there's a database error during creation.
         """
         try:
-            # Create new User instance with generated ObjectId
-            new_user = User(id=ObjectId(), email=email, google_auth=google_auth_info)
-            # Save the new user to MongoDB
-            await self.mongo_service.engine.save(new_user)
+            # Create new User instance (let Beanie handle ID generation)
+            new_user = User(
+                email=email,
+                google_auth=google_auth_info
+            )
+            # Save the new user using Beanie's insert method
+            await new_user.insert()
             return new_user
         except PyMongoError as e:
             # Convert MongoDB-specific error to a generic exception
@@ -82,8 +85,8 @@ class UserService:
         try:
             # Update the modified_at timestamp to current UTC time
             user.modified_at = datetime.datetime.utcnow()
-            # Save the updated user to MongoDB
-            await self.mongo_service.engine.save(user)
+            # Save the updated user using Beanie's save method
+            await user.save()
         except PyMongoError as e:
             # Convert MongoDB-specific error to a generic exception
             raise Exception("Database error during updating user") from e

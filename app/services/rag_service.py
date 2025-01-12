@@ -2,7 +2,7 @@ import os
 from typing import Annotated, List, Optional, Dict, Any
 from app.models.task import Task
 from fastapi import Depends
-from odmantic import ObjectId
+from beanie import PydanticObjectId
 from openai import AsyncOpenAI
 from app.models.conversation import Conversation
 from app.models.message import Message
@@ -22,7 +22,7 @@ class RagService:
     async def initialize(self):
         """Initialize basic index for conversation_id"""
         try:
-            db = self.mongo_service.engine.client.get_database("aprvai")
+            db = self.mongo_service.db_async
             # Create compound index for conversation_id and source_file
             await db.embeddings.create_index([("conversation_id", 1), ("source_file", 1)])
         except Exception as e:
@@ -50,11 +50,11 @@ class RagService:
 
     async def insert_to_rag(self, conversation_id: str) -> None:
         """Insert conversation data into RAG system"""
-        conversation = await self.mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
+        conversation = await Conversation.find_one(Conversation.id == PydanticObjectId(conversation_id))
         if not conversation or not conversation.design_process_task_id:
             raise Exception(f"Conversation or task not found for id: {conversation_id}")
 
-        task = await self.mongo_service.engine.find_one(Task, Task.id == conversation.design_process_task_id)
+        task = await Task.find_one(Task.id == PydanticObjectId(conversation.design_process_task_id))
         if not task or not task.generated_txt_id:
             raise Exception("Task or generated text not found")
 
@@ -81,7 +81,7 @@ class RagService:
             for chunk, embedding in zip(chunks, embeddings)
         ]
 
-        await self.mongo_service.engine.client.get_database("aprvai").embeddings.insert_many(documents)
+        await self.mongo_service.db_async.embeddings.insert_many(documents)
 
     async def insert_to_rag_with_message(self, conversation_id: str, message: Message) -> None:
         """Insert message data into RAG system"""
@@ -143,7 +143,7 @@ class RagService:
             raise Exception("No valid content found in any of the PDF files")
 
         # Add all chunks to MongoDB
-        await self.mongo_service.engine.client.get_database("aprvai").embeddings.insert_many(all_documents)
+        await self.mongo_service.db_async.embeddings.insert_many(all_documents)
         logger.info(f"Added {total_chunks} chunks from {processed_files} files to RAG system")
 
     async def search_similar(self, query: str, conversation_id: str, limit: int = 5) -> List[Dict[str, Any]]:
@@ -157,8 +157,7 @@ class RagService:
         try:
             # For now, just return the most recent chunks since we can't do vector search without Atlas
             results = (
-                await self.mongo_service.engine.client.get_database("aprvai")
-                .embeddings.find(
+                await self.mongo_service.db_async.embeddings.find(
                     {"conversation_id": conversation_id},
                     {"text": 1, "source_filename": 1, "source_file": 1, "chunk_index": 1, "total_chunks": 1, "_id": 0},
                 )

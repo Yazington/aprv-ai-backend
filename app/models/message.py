@@ -1,18 +1,30 @@
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
-from odmantic import Field, Index, Model, ObjectId
-from odmantic.query import asc
+from beanie import Document, Indexed, PydanticObjectId
 
 
-class Message(Model):
-    conversation_id: ObjectId
+class Message(Document):
+    conversation_id: PydanticObjectId
     content: str
     is_from_human: bool
-    user_id: ObjectId
-    uploaded_pdf_ids: list[ObjectId] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    modified_at: datetime = Field(default_factory=datetime.utcnow)
-    model_config = {
-        "indexes": lambda: [Index(asc(Message.user_id), asc(Message.conversation_id), asc(Message.created_at), asc(Message.modified_at))]
-    }  # type: ignore
+    user_id: str
+    uploaded_pdf_ids: List[str] = []  # Beanie uses str for IDs
+    created_at: datetime = datetime.utcnow()
+    modified_at: datetime = datetime.utcnow()
+
+    class Settings:
+        name = "messages"
+        indexes = [
+            [
+                ("user_id", 1),
+                ("conversation_id", 1),
+                ("created_at", 1),
+                ("modified_at", 1)
+            ]
+        ]
+
+    class Config:
+        json_encoders = {
+            PydanticObjectId: str
+        }
