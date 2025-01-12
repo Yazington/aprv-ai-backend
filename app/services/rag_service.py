@@ -1,166 +1,213 @@
 import os
-import re
-from typing import Annotated
-
-import numpy as np
+from typing import Annotated, List, Optional, Dict, Any
+from app.models.task import Task
 from fastapi import Depends
-from lightrag import LightRAG, QueryParam  # type:ignore
-from lightrag.llm import gpt_4o_mini_complete, openai_complete_if_cache, openai_embedding  # type:ignore
-from lightrag.utils import EmbeddingFunc  # type:ignore
 from odmantic import ObjectId
-from tenacity import retry, stop_after_attempt, wait_random_exponential
-
-from app.config import settings
+from openai import AsyncOpenAI
 from app.models.conversation import Conversation
 from app.models.message import Message
-from app.models.task import Task
 from app.services.mongo_service import MongoService, get_mongo_service
+from app.config.settings import settings
+from app.config.logging_config import logger
+from PyPDF2 import PdfReader
+from io import BytesIO
 
 
 class RagService:
     def __init__(self, mongo_service: MongoService):
+        """Initialize RAG service with MongoDB connection"""
         self.mongo_service = mongo_service
+        self.openai_client = AsyncOpenAI(api_key=settings.openai_api_key)
 
-    @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
-    async def search_similar_text(self, prompt: str, conversation_id: ObjectId, mode="hybrid") -> str:
-        user_rag_workdir = "./data"
-        safe_conversation_id = re.sub(r"[^a-zA-Z0-9_-]", "_", str(conversation_id))
-
-        conversation = await self.mongo_service.engine.find_one(Conversation, Conversation.id == conversation_id)
-        if not conversation:
-            raise Exception("Conversation not found for id: " + str(conversation_id))
-        os.makedirs(user_rag_workdir, exist_ok=True)
-
-        conversation_dir = os.path.join(user_rag_workdir, safe_conversation_id)
-        os.makedirs(conversation_dir, exist_ok=True)
-
-        rag = LightRAG(
-            working_dir=conversation_dir,
-            llm_model_func=gpt_4o_mini_complete,  # Use gpt_4o_mini_complete LLM model
-        )
-        # rag = LightRAG(
-        #     working_dir=conversation_dir,
-        #     llm_model_func=llm_model_func,
-        #     embedding_func=EmbeddingFunc(embedding_dim=3072, max_token_size=8192, func=embedding_func),
-        # )
-
+    async def initialize(self):
+        """Initialize basic index for conversation_id"""
         try:
-            # print(await rag.aquery(prompt, param=QueryParam(mode=mode)))
-            response = await rag.aquery(prompt, param=QueryParam(mode=mode))
+            db = self.mongo_service.engine.client.get_database("aprvai")
+            # Create compound index for conversation_id and source_file
+            await db.embeddings.create_index([("conversation_id", 1), ("source_file", 1)])
         except Exception as e:
-            print(f"Error during query: {e}")
-            return ""
-        return response
+            logger.error(f"Index creation error (might already exist): {e}")
 
-    @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
-    async def insert_to_rag(self, conversation_id: str):
-        user_rag_workdir = "./data"
+    async def _get_embeddings(self, texts: List[str]) -> List[List[float]]:
+        """Get embeddings from OpenAI API"""
+        response = await self.openai_client.embeddings.create(model="text-embedding-3-small", input=texts)
+        return [embedding.embedding for embedding in response.data]
 
-        # Sanitize conversation_id
-        safe_conversation_id = re.sub(r"[^a-zA-Z0-9_-]", "_", conversation_id)
+    def _extract_text_from_pdf(self, pdf_bytes: bytes) -> str:
+        """Extract text content from PDF bytes."""
+        try:
+            pdf_file = BytesIO(pdf_bytes)
+            pdf_reader = PdfReader(pdf_file)
+            text_content = []
 
+            for page in pdf_reader.pages:
+                text_content.append(page.extract_text())
+
+            return "\n".join(text_content)
+        except Exception as e:
+            logger.error(f"Error extracting text from PDF: {str(e)}")
+            raise
+
+    async def insert_to_rag(self, conversation_id: str) -> None:
+        """Insert conversation data into RAG system"""
         conversation = await self.mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
-        if not conversation:
-            raise Exception("Conversation not found for id: " + conversation_id)
-        if not conversation.design_process_task_id:
-            raise Exception("Task not found for conversation id: " + conversation_id)
+        if not conversation or not conversation.design_process_task_id:
+            raise Exception(f"Conversation or task not found for id: {conversation_id}")
 
         task = await self.mongo_service.engine.find_one(Task, Task.id == conversation.design_process_task_id)
+        if not task or not task.generated_txt_id:
+            raise Exception("Task or generated text not found")
 
-        file_exists = self.mongo_service.fs.exists(task.generated_txt_id)
-        if not file_exists:
-            raise FileNotFoundError(f"File with ID {task.generated_txt_id} not found.")
+        # Get document from GridFS
+        grid_out = self.mongo_service.fs.find_one(task.generated_txt_id)
+        if not grid_out:
+            raise FileNotFoundError(f"File with ID {task.generated_txt_id} not found")
 
-        # Retrieve the file from GridFS
-        processed_guideline_document_grid_out = self.mongo_service.fs.find_one(task.generated_txt_id)
-        processed_guideline_document_txt = processed_guideline_document_grid_out.read().decode("utf-8")
+        document_text = grid_out.read().decode("utf-8")
+        chunks = self.split_document_into_chunks(document_text)
 
-        # Ensure /data and user directory exist
-        os.makedirs(user_rag_workdir, exist_ok=True)
+        # Get embeddings for chunks
+        embeddings = await self._get_embeddings(chunks)
 
-        user_dir = os.path.join(user_rag_workdir, safe_conversation_id)
-        os.makedirs(user_dir, exist_ok=True)
-        rag = LightRAG(
-            working_dir=user_dir,
-            llm_model_func=gpt_4o_mini_complete,  # Use gpt_4o_mini_complete LLM model
-        )
-        # rag = LightRAG(
-        #     working_dir=user_dir,
-        #     llm_model_func=llm_model_func,
-        #     embedding_func=EmbeddingFunc(embedding_dim=3072, max_token_size=8192, func=embedding_func),
-        # )
+        # Add chunks to MongoDB
+        documents = [
+            {
+                "conversation_id": conversation_id,
+                "text": chunk,
+                "embedding": embedding,
+                "source_file": str(task.generated_txt_id),
+                "source_type": "task",
+            }
+            for chunk, embedding in zip(chunks, embeddings)
+        ]
 
-        await rag.ainsert(processed_guideline_document_txt)
+        await self.mongo_service.engine.client.get_database("aprvai").embeddings.insert_many(documents)
 
-    @retry(wait=wait_random_exponential(min=1, max=60), stop=stop_after_attempt(6))
-    async def insert_to_rag_with_message(self, conversation_id: str, message: Message):
-        user_rag_workdir = "./data"
-        safe_conversation_id = re.sub(r"[^a-zA-Z0-9_-]", "_", conversation_id)
+    async def insert_to_rag_with_message(self, conversation_id: str, message: Message) -> None:
+        """Insert message data into RAG system"""
+        if not message.uploaded_pdf_ids:
+            raise Exception("No PDF IDs found in message")
 
-        conversation = await self.mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
-        if not conversation:
-            raise Exception("Conversation not found for id: " + conversation_id)
+        all_documents = []
+        processed_files = 0
+        total_chunks = 0
 
-        file_exists = self.mongo_service.fs.exists(message.uploaded_pdf_id)
-        if not file_exists:
-            raise FileNotFoundError(f"File with ID {message.uploaded_pdf_id} not found.")
+        # Process each PDF file
+        for pdf_id in message.uploaded_pdf_ids:
+            grid_out = self.mongo_service.fs.find_one(pdf_id)
+            if not grid_out:
+                logger.warning(f"File with ID {pdf_id} not found, skipping")
+                continue
 
-        processed_guideline_document_grid_out = self.mongo_service.fs.find_one(message.uploaded_pdf_id)
-        processed_guideline_document_txt = processed_guideline_document_grid_out.read().decode("utf-8")
-        os.makedirs(user_rag_workdir, exist_ok=True)
+            try:
+                # Read PDF content
+                pdf_bytes = grid_out.read()
+                filename = grid_out.filename
+                logger.info(f"Processing PDF {filename} ({len(pdf_bytes) / 1024:.2f}KB)")
 
-        user_dir = os.path.join(user_rag_workdir, safe_conversation_id)
-        os.makedirs(user_dir, exist_ok=True)
-        print("type: ", type(processed_guideline_document_txt))
+                # Extract text from PDF
+                document_text = self._extract_text_from_pdf(pdf_bytes)
+                logger.info(f"Extracted {len(document_text)} characters of text from {filename}")
 
-        rag = LightRAG(
-            working_dir=user_dir,
-            llm_model_func=gpt_4o_mini_complete,  # Use gpt_4o_mini_complete LLM model
-        )
-        # rag = LightRAG(
-        #     working_dir=user_dir,
-        #     llm_model_func=llm_model_func,
-        #     embedding_func=EmbeddingFunc(embedding_dim=3072, max_token_size=8192, func=embedding_func),
-        # )
+                # Split into chunks and get embeddings
+                chunks = self.split_document_into_chunks(document_text)
+                logger.info(f"Split {filename} into {len(chunks)} chunks")
 
-        # Split the document into smaller chunks
-        # document_chunks = self.split_document_into_chunks(processed_guideline_document_txt)
+                embeddings = await self._get_embeddings(chunks)
+                logger.info(f"Generated embeddings for {len(embeddings)} chunks from {filename}")
 
-        await rag.ainsert(processed_guideline_document_txt)
+                # Create documents for this PDF
+                pdf_documents = [
+                    {
+                        "conversation_id": conversation_id,
+                        "message_id": str(message.id),
+                        "text": chunk,
+                        "embedding": embedding,
+                        "source_file": str(pdf_id),
+                        "source_filename": filename,
+                        "chunk_index": idx,
+                        "total_chunks": len(chunks),
+                    }
+                    for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings))
+                ]
 
-    def split_document_into_chunks(self, document: str, chunk_size: int = 10000) -> list:
+                all_documents.extend(pdf_documents)
+                total_chunks += len(chunks)
+                processed_files += 1
+
+            except Exception as e:
+                logger.error(f"Error processing file {pdf_id}: {str(e)}")
+                continue
+
+        if not all_documents:
+            raise Exception("No valid content found in any of the PDF files")
+
+        # Add all chunks to MongoDB
+        await self.mongo_service.engine.client.get_database("aprvai").embeddings.insert_many(all_documents)
+        logger.info(f"Added {total_chunks} chunks from {processed_files} files to RAG system")
+
+    async def search_similar(self, query: str, conversation_id: str, limit: int = 5) -> List[Dict[str, Any]]:
         """
-        Splits a document into chunks based on the specified chunk size.
-        You can adjust `chunk_size` as needed for your application.
+        Search for similar content in the RAG system
+        Returns the most relevant text chunks with source information
         """
-        # This is a simple example. Modify it based on actual requirements.
-        return [document[i : i + chunk_size] for i in range(0, len(document), chunk_size)]
+        # Get query embedding
+        query_embedding = await self._get_embeddings([query])
 
-    # async def embedding_func(self, texts: list[str]) -> np.ndarray:
-    #     return await openai_embedding(texts, model="text-embedding-3-large", api_key=settings.settings.openai_api_key)
+        try:
+            # For now, just return the most recent chunks since we can't do vector search without Atlas
+            results = (
+                await self.mongo_service.engine.client.get_database("aprvai")
+                .embeddings.find(
+                    {"conversation_id": conversation_id},
+                    {"text": 1, "source_filename": 1, "source_file": 1, "chunk_index": 1, "total_chunks": 1, "_id": 0},
+                )
+                .limit(limit)
+                .to_list(length=limit)
+            )
+
+            # Format results with source information
+            formatted_results = []
+            for doc in results or []:
+                result = {
+                    "text": doc["text"],
+                    "source": doc.get("source_filename", "Unknown"),
+                    "file_id": doc.get("source_file", "Unknown"),
+                }
+                if "chunk_index" in doc and "total_chunks" in doc:
+                    result["position"] = f"Part {doc['chunk_index'] + 1} of {doc['total_chunks']}"
+                formatted_results.append(result)
+
+            return formatted_results
+
+        except Exception as e:
+            logger.error(f"Error during similarity search: {e}")
+            return []
+
+    def split_document_into_chunks(self, document: str, chunk_size: int = 500) -> List[str]:
+        """Split document into smaller chunks, using sentence boundaries where possible"""
+        sentences = document.split(". ")
+        chunks = []
+        current_chunk = []
+        current_size = 0
+
+        for sentence in sentences:
+            sentence_size = len(sentence.split())
+            if current_size + sentence_size > chunk_size and current_chunk:
+                chunks.append(". ".join(current_chunk) + ".")
+                current_chunk = []
+                current_size = 0
+            current_chunk.append(sentence)
+            current_size += sentence_size
+
+        if current_chunk:
+            chunks.append(". ".join(current_chunk) + ".")
+
+        return chunks
 
 
-# async def llm_model_func(prompt, system_prompt=None, history_messages=[], **kwargs) -> str:
-#     return await openai_complete_if_cache(
-#         "gpt-4o-mini",
-#         prompt,
-#         system_prompt=system_prompt,
-#         history_messages=history_messages,
-#         api_key=settings.settings.openai_api_key,
-#         **kwargs,
-#     )
-
-
-# Embedding function
-
-
-async def embedding_func(texts: list[str]) -> np.ndarray:
-    return await openai_embedding(
-        texts,
-        model="text-embedding-3-large",
-        api_key=settings.settings.openai_api_key,
-    )
-
-
-def get_rag_service(mongo_service: Annotated[MongoService, Depends(get_mongo_service)]):
-    return RagService(mongo_service)
+async def get_rag_service(mongo_service: Annotated[MongoService, Depends(get_mongo_service)]) -> RagService:
+    """Dependency injection function to get RAG service instance"""
+    service = RagService(mongo_service)
+    await service.initialize()
+    return service

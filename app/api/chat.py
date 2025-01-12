@@ -5,7 +5,8 @@ It manages prompt creation, response generation, and streaming of AI responses.
 """
 
 import json
-from typing import Annotated, AsyncGenerator
+from typing import Annotated, AsyncGenerator, List
+from openai.types.chat import ChatCompletionMessageParam
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -18,6 +19,7 @@ from app.services.conversation_service import ConversationService, get_conversat
 from app.services.message_service import MessageService, get_message_service
 from app.services.mongo_service import MongoService, get_mongo_service
 from app.services.openai_service import OpenAIClient, get_openai_client
+from app.services.rag_service import RagService, get_rag_service
 from app.utils.tiktoken import truncate_all
 
 # Create FastAPI router for chat endpoints
@@ -72,6 +74,7 @@ async def get_prompt_model_response(
     openai_client: Annotated[OpenAIClient, Depends(get_openai_client)],
     message_service: Annotated[MessageService, Depends(get_message_service)],
     conversation_service: Annotated[ConversationService, Depends(get_conversation_service)],
+    rag_service: Annotated[RagService, Depends(get_rag_service)],
 ):
     """
     Generates an AI response to a given prompt message and streams it back to the client.
@@ -111,17 +114,25 @@ async def get_prompt_model_response(
     # Truncate text if necessary to fit token limits
     user_prompt, history_text = truncate_all(user_prompt, user_prompt_tokens, history_tokens, history_text)
 
+    # Get relevant context from RAG
+    relevant_context = await rag_service.search_similar(user_prompt, str(prompt_message.conversation_id))
+    context_text = "\n".join(relevant_context) if relevant_context else ""
+
     # Prepare messages for OpenAI API
-    messages = [{"role": "user", "content": user_prompt}]
-    if history_text:
+    messages: List[ChatCompletionMessageParam] = [{"role": "user", "content": user_prompt}]
+    if history_text or context_text:
         # Add system message with conversation context
-        messages.append(
-            {
-                "role": "system",
-                "content": f"""
+        messages.extend(
+            [
+                {
+                    "role": "system",
+                    "content": f"""
 You are a brand guideline licensee/licensor assistant. To help the licensee/licensor, you are talking to them inside a conversation.
 In the conversation, the licensee/licensor can upload one design file (image), multiple guidelines (pdfs concatenated) and, most importantly,
 can review the design against a guideline.
+
+Here is relevant context from the uploaded guidelines:
+{context_text}
 
 In order to get context about the conversation, you can use tools!
 If the licensee/licensor asks about design files, guidelines and brand licensing, ensure that the necessary files for the task exist.
@@ -129,10 +140,12 @@ If the necessary file isnt uploaded, ask the licensee/licensor to do so.
 
 CONVERSATION_ID: {str(prompt_message.conversation_id)}
 """,
-            }
+                }
+            ]
         )
         # Insert history as system message
-        messages.insert(1, {"role": "system", "content": history_text})
+        if history_text:
+            messages.insert(1, {"role": "system", "content": history_text})
 
     async def event_generator() -> AsyncGenerator[str, None]:
         """

@@ -1,11 +1,16 @@
+# Service for handling design approval workflows against brand guidelines
+# Main responsibilities:
+# - Validating designs against PDF guidelines
+# - Processing PDF content and extracting relevant information
+# - Managing approval tasks and reviews
+# - Integrating with MongoDB, OpenAI, and RAG services
+
 import asyncio
-import concurrent.futures
 from io import BytesIO
 from typing import Annotated, List, Tuple, Union
 
-import fitz  # type: ignore
+import fitz
 from fastapi.params import Depends
-from gmft.pdf_bindings import PyPDFium2Document  # type: ignore
 from gridfs import GridOut
 from odmantic import ObjectId
 
@@ -22,6 +27,14 @@ from app.utils.tiktoken import num_tokens_from_messages
 
 
 class ApprovalService:
+    """
+    Core service for design approval workflows. Handles:
+    - PDF content extraction and processing
+    - Design validation against brand guidelines
+    - Task management and review tracking
+    - Integration with external services (MongoDB, OpenAI, RAG)
+    """
+
     def __init__(
         self,
         mongo_service: MongoService,
@@ -29,37 +42,66 @@ class ApprovalService:
         openai_client: OpenAIClient,
         pdf_extraction_service: PDFExtractionService,
     ):
+        """
+        Initialize approval service with required dependencies:
+        - mongo_service: For database operations and file storage
+        - rag_service: For retrieval-augmented generation tasks
+        - openai_client: For AI-powered design validation
+        - pdf_extraction_service: For processing PDF guidelines
+        """
         self.rag_service = rag_service
         self.mongo_service = mongo_service
         self.openai_client = openai_client
         self.pdf_extraction_service = pdf_extraction_service
 
     async def validate_design_against_all_documents(self, pdf_bytes, design_bytes, conversation_id):
+        """
+        Validate a design against all pages of a PDF guideline document
+        Args:
+            pdf_bytes: Byte content of the PDF guideline document
+            design_bytes: Byte content of the design file
+            conversation_id: ID of the associated conversation
 
-        extracted_pdf_resources, doc = await self.pdf_extraction_service.extract_tables_and_text_from_file(
-            pdf_bytes, keep_document_open=True
-        )
+        Returns:
+            List of inference results for each page of the guideline
+        """
 
         try:
-            inference_result_resources: List[LLMPageInferenceResource] = []
+            # Create fitz Document from bytes
+            pdf_stream = BytesIO(pdf_bytes)
+            doc = fitz.open(stream=pdf_stream, filetype="pdf")
 
+            inference_result_resources: List[LLMPageInferenceResource] = []
             page_data_list = []
 
-            # Sequentially extract necessary data from the doc
-            for extracted_pdf_content in extracted_pdf_resources:
-                fitz_page = doc.load_page(extracted_pdf_content.page_number)
+            # Process each page
+            for page_num in range(doc.page_count):
+                page = doc.load_page(page_num)
 
-                # Extract images
-                guideline_image_bytes_list = self.get_page_images_as_bytes(fitz_page, doc)
-                extracted_pdf_content.give_images = guideline_image_bytes_list
-
-                if not extracted_pdf_content.given_tables:
-                    extracted_pdf_content.given_tables = []
+                # Create inference resource
+                page_inference_resource = LLMPageInferenceResource()
+                page_inference_resource.page_number = page_num
+                # Extract text from page using PyMuPDF's built-in method
+                try:
+                    # Ignore type checking for PyMuPDF methods
+                    text = page.get_text("text")  # type: ignore
+                    page_inference_resource.given_text = text.strip() if text else ""
+                except Exception as e:
+                    logger.error(f"Error extracting text from page {page_num}: {str(e)}")
+                    page_inference_resource.given_text = ""
+                page_inference_resource.given_tables = []  # Tables will be extracted by pdf_extraction_service
+                page_inference_resource.give_images = self.get_page_images_as_bytes(page, doc)
 
                 # Store the extracted content for concurrent processing
-                page_data_list.append(extracted_pdf_content)
+                page_data_list.append(page_inference_resource)
 
-            doc.close()
+            # Get tables from pdf_extraction_service
+            tables_dict, _ = await self.pdf_extraction_service.get_tables_for_each_page_formatted_as_text(pdf_bytes)
+
+            # Add tables to corresponding pages
+            for page_resource in page_data_list:
+                if page_resource.page_number + 1 in tables_dict:  # Textract uses 1-based page numbers
+                    page_resource.given_tables = tables_dict[page_resource.page_number + 1]
 
             # Create tasks for concurrent processing of each page
             tasks = [
@@ -71,12 +113,23 @@ class ApprovalService:
             inference_result_resources = await asyncio.gather(*tasks)
 
         except Exception as e:
+            logger.error(f"Error processing PDF content: {str(e)}")
             doc.close()
             raise
 
         return inference_result_resources
 
     async def process_page_content(self, extracted_pdf_content, design_bytes, conversation_id):
+        """
+        Process content from a single PDF page and validate against design
+        Args:
+            extracted_pdf_content: Extracted content from PDF page
+            design_bytes: Byte content of design file
+            conversation_id: ID of associated conversation
+
+        Returns:
+            Page inference resource with validation results
+        """
         content, number_of_token = await self.compare_design_against_page(
             extracted_pdf_content.given_text,
             extracted_pdf_content.given_tables,
@@ -110,6 +163,16 @@ class ApprovalService:
         self,
         conversation_id: str,
     ):
+        """
+        Background task for processing design validation
+        Args:
+            conversation_id: ID of conversation to process
+
+        Handles:
+            - Loading conversation and associated files
+            - Validating design against guidelines
+            - Saving results and updating task status
+        """
         logger.info("Starting background task for conversation_id: %s", conversation_id)
 
         conversation = await self.mongo_service.engine.find_one(Conversation, Conversation.id == ObjectId(conversation_id))
@@ -152,11 +215,8 @@ class ApprovalService:
             # Convert the list to a plain text string (each item on a new line)
             text_data = "\n".join(str(resource) for resource in llm_inference_per_page_resources)
 
-            # Save the text data to a byte stream
-            text_byte_array = BytesIO(text_data.encode("utf-8"))
-
-            # Store the text byte array in GridFS using `put()`
-            txt_file_id = self.mongo_service.fs.put(text_byte_array, filename=f"{conversation_id}_generated.txt")
+            # Store the text data directly in GridFS
+            txt_file_id = self.mongo_service.fs.put(text_data.encode("utf-8"), filename=f"{conversation_id}_generated.txt")
 
             # Update the task with success status and store the text file ID
             task.status = TaskStatus.COMPLETE.name
@@ -170,6 +230,16 @@ class ApprovalService:
             await self.mongo_service.engine.save(task)
 
     def get_existing_files_as_bytes(self, mongo_service: MongoService, guidelines_id, design_id):
+        """
+        Retrieve stored files from MongoDB GridFS as byte content
+        Args:
+            mongo_service: MongoDB service instance
+            guidelines_id: ID of guidelines file
+            design_id: ID of design file
+
+        Returns:
+            Tuple of (guidelines_bytes, design_bytes)
+        """
         guidelines_file: GridOut = self.mongo_service.fs.find_one({"_id": guidelines_id})
         design_file: GridOut = self.mongo_service.fs.find_one({"_id": design_id})
 
@@ -189,6 +259,14 @@ class ApprovalService:
         return contract_bytes, design_bytes
 
     async def create_task(self, conversation_id):
+        """
+        Create a new approval task in the database
+        Args:
+            conversation_id: ID of associated conversation
+
+        Returns:
+            Created Task object
+        """
         if not conversation_id:
             logger.error("No conversation id provided for processing")
             raise Exception("No conversation id provided for processing")
@@ -203,6 +281,15 @@ class ApprovalService:
         return task
 
     def get_page_images_as_bytes(self, page, pdf_document: fitz.Document) -> List[bytes]:
+        """
+        Extract images from a PDF page as byte content
+        Args:
+            page: PDF page object
+            pdf_document: Parent PDF document
+
+        Returns:
+            List of image bytes
+        """
         # Extract images from the page
         images = page.get_images(full=True)
         if len(images) > 20:
@@ -220,6 +307,18 @@ class ApprovalService:
     async def compare_design_against_page(
         self, text: str, tables: List[str], design_bytes: bytes, guideline_image_bytes_list: List[bytes], openai_client: OpenAIClient
     ) -> Tuple[Union[BrandGuidelineReviewResource, None], int]:
+        """
+        Compare design against a single page's content using OpenAI
+        Args:
+            text: Extracted text from guideline page
+            tables: Extracted tables from guideline page
+            design_bytes: Design file content
+            guideline_image_bytes_list: Images from guideline page
+            openai_client: OpenAI client instance
+
+        Returns:
+            Tuple of (validation result, token count used)
+        """
         # Prepare the prompt
         guideline_text = "None" if text == "" else text
         guideline_tables = "None" if not tables else "\n".join(tables)
@@ -255,6 +354,10 @@ class ApprovalService:
         return content, tokens_used
 
     def init_subprocess_models(self):
+        """
+        Initialize global models for subprocess workers
+        Used for parallel PDF processing
+        """
         global detector
         global formatter
         from gmft.auto import AutoTableDetector, AutoTableFormatter  # type:ignore
@@ -262,41 +365,16 @@ class ApprovalService:
         detector = AutoTableDetector()
         formatter = AutoTableFormatter()
 
-    # def process_page(self, page_number, pdf_bytes):
-    #     # Re-initialize any global objects to ensure they are available in the subprocess
-    #     global detector
-    #     global formatter
-
-    #     # Open the documents
-    #     pdf_document = fitz.open("pdf", pdf_bytes)
-    #     doc = PyPDFium2Document(pdf_bytes)
-
-    #     # Get the page
-    #     fitz_page = pdf_document.load_page(page_number)
-    #     page = doc.get_page(page_number)
-
-    #     # Extract text from the page
-    #     text = fitz_page.get_text("text")
-
-    #     # Extract tables
-    #     logger.info(f"Extracting tables from page {page_number}")
-    #     tables = detector.extract(page)
-    #     logger.info(f"Formatting tables from page {page_number}")
-    #     text_tables = self.extract_and_store_tables_as_string(tables, formatter)
-
-    #     # Build the result
-    #     page_inference_resource = LLMPageInferenceResource()
-    #     page_inference_resource.page_number = page_number
-    #     page_inference_resource.given_text = text
-    #     page_inference_resource.given_tables = text_tables
-
-    #     # Close documents
-    #     pdf_document.close()
-    #     doc.close()
-
-    #     return page_inference_resource
-
     def extract_and_store_tables_as_string(self, tables, formatter):
+        """
+        Extract and format tables from PDF content
+        Args:
+            tables: List of detected tables
+            formatter: Table formatter instance
+
+        Returns:
+            List of formatted table strings
+        """
 
         extracted_data: List[str] = []  # type:ignore
         for table in tables:
@@ -307,25 +385,6 @@ class ApprovalService:
                 extracted_data.append(df.to_string(index=False))
         return extracted_data
 
-    # async def extract_tables_and_text_from_file(self, pdf_bytes):
-    #     try:
-    #         # Open the document to get the number of pages
-    #         doc = PyPDFium2Document(pdf_bytes)
-    #         num_pages = len(doc)
-    #         doc.close()
-
-    #         loop = asyncio.get_running_loop()
-    #         inference_result_resources: List[LLMPageInferenceResource] = []  # type:ignore
-
-    #         with concurrent.futures.ProcessPoolExecutor(max_workers=10, initializer=self.init_subprocess_models) as pool:
-    #             tasks = [loop.run_in_executor(pool, self.process_page, page_number, pdf_bytes) for page_number in range(num_pages)]
-    #             inference_result_resources = await asyncio.gather(*tasks)
-    #     except Exception as e:
-    #         logger.error(f"An error occurred: {e}")
-    #         raise
-
-    #     return inference_result_resources
-
 
 def get_approval_service(
     mongo_service: Annotated[MongoService, Depends(get_mongo_service)],
@@ -333,4 +392,9 @@ def get_approval_service(
     openai_client: Annotated[OpenAIClient, Depends(get_openai_client)],
     pdf_extraction_service: Annotated[PDFExtractionService, Depends(get_pdf_extraction_service)],
 ):
+    """
+    Dependency injection factory for ApprovalService
+    Returns:
+        Configured ApprovalService instance
+    """
     return ApprovalService(mongo_service, rag_service, openai_client, pdf_extraction_service)

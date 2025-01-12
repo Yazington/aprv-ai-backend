@@ -1,19 +1,29 @@
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, validator
 
 
 class AuthRequest(BaseModel):
     """Pydantic model representing authentication request data.
 
     This model is used to validate and structure incoming authentication data
-    from API requests. Both fields are optional to support different auth flows.
+    from API requests. The auth_token is required for Google OAuth authentication.
     """
 
-    auth_token: Optional[str] = None
-    # Used for Google OAuth token authentication
-    # Typically contains the ID token from Google Sign-In
+    auth_token: str = Field(
+        ...,  # This makes the field required
+        description="Google OAuth ID token from Google Sign-In",
+        min_length=50,  # Google tokens are typically much longer
+    )
 
-    access_token: Optional[str] = None
-    # Used for API access token authentication
-    # Typically contains a JWT token for API authorization
+    access_token: Optional[str] = Field(
+        None,
+        description="JWT token for API authorization",
+    )
+
+    @validator("auth_token")
+    def validate_auth_token(cls, v):
+        """Validate the auth token format"""
+        if not v or len(v.strip()) < 50:
+            raise ValueError("Invalid Google auth token format")
+        return v.strip()

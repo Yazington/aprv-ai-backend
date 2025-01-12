@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     google_client_id: str | None = os.getenv("GOOGLE_CLIENT_ID")  # Google client ID
     temp: str | None = os.getenv("TEMP")  # Temporary directory path
 
+    # AWS credentials for Textract
+    aws_access_key_id: str | None = os.getenv("AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: str | None = os.getenv("AWS_SECRET_ACCESS_KEY")
+    aws_region: str = os.getenv("AWS_REGION", "us-east-1")  # Default to us-east-1
+
 
 # Instantiate the Settings class to load the settings
 settings = Settings()  # type: ignore

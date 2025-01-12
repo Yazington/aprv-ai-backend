@@ -16,6 +16,16 @@ class MessageService:
         self.mongo_service = mongo_service
 
     async def create_message(self, content: str, conversation_id: ObjectId, user_id: ObjectId) -> Message:
+        """Creates and saves a new message in the database.
+
+        Args:
+            content: The text content of the message
+            conversation_id: ID of the conversation this message belongs to
+            user_id: ID of the user who sent the message
+
+        Returns:
+            The created Message object with a new ObjectId
+        """
         message = Message(
             id=ObjectId(),
             conversation_id=conversation_id,
@@ -26,9 +36,27 @@ class MessageService:
         return await self.mongo_service.engine.save(message)
 
     async def retrieve_message_by_id(self, message_id: ObjectId) -> Optional[Message]:
+        """Retrieves a single message by its ID.
+
+        Args:
+            message_id: The ID of the message to retrieve
+
+        Returns:
+            The Message object if found, None otherwise
+        """
         return await self.mongo_service.engine.find_one(Message, Message.id == message_id)
 
     async def retrieve_message_history(self, conversation_id: ObjectId, exclude_message_id: ObjectId) -> str:
+        """Retrieves the message history for a conversation, excluding a specific message.
+
+        Args:
+            conversation_id: ID of the conversation to get history for
+            exclude_message_id: ID of message to exclude from history
+
+        Returns:
+            A string containing all message contents joined by newlines,
+            or empty string if no conversation_id provided
+        """
         if conversation_id:
             past_messages = await self.mongo_service.engine.find(
                 Message,
@@ -40,11 +68,28 @@ class MessageService:
         return ""
 
     async def get_conversations_messages(self, conversation_id: str):
+        """Retrieves all messages for a given conversation.
+
+        Args:
+            conversation_id: String ID of the conversation
+
+        Returns:
+            List of Message objects for the conversation,
+            or None if no conversation_id provided
+        """
         if not conversation_id:
             return None
         return await self.mongo_service.engine.find(Message, Message.conversation_id == ObjectId(conversation_id))
 
     def get_tokenized_message_count(self, message: str) -> int:
+        """Counts the number of tokens in a message using tiktoken.
+
+        Args:
+            message: The message text to count tokens for
+
+        Returns:
+            Integer count of tokens in the message
+        """
         return count_tokens(message)
 
 

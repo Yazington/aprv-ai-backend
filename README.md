@@ -1,6 +1,17 @@
 # APRV AI Backend
 
 A FastAPI project with integrated Ruff, Mypy, and Black for linting, type checking, and formatting.
+This project is the backend for brand licensing platform called APRV AI.
+The project is chat based. A user (could be brand licensee/licensor) can upload designs (png/jpeg) and documents(pdfs).
+A licensee can oversee design approval operations with the help of an LLM. He can upload a design and a guideline and can start an Approval Process (Run Compliance Check).
+The compliance check can go through each page of the guidelines and approve or deny the design against that page.
+The LLM uses tools:
+
+- find_information_in_document_of_conversation
+- check_for_conversation_uploaded_design_file
+- check_for_conversation_uploaded_guidelines_file
+- check_for_conversation_review_or_approval_process_file
+- get_guidelines_page_review
 
 ## Setup
 
@@ -63,6 +74,7 @@ The aprv-ai-backend is a brand guideline/licensing assistant application built w
 - Design review capabilities against brand guidelines
 - Semantic search using RAG (Retrieval Augmented Generation)
 - Integration with OpenAI GPT-4 for natural language processing
+- Design approval process (Uploading desing + guideline) -> for each page of guideline, approving/denying design
 
 ### Technology Stack
 
@@ -108,6 +120,56 @@ The application follows a clean architecture with clear separation of concerns:
 4. **Utility Layer**: Helper functions and tools in `app/utils/`
 
 # ALL SOURCE CODE DEFINITIONS
+
+### Additional Features to Consider (Based on Industry Leaders)
+
+#### Contract and Royalty Management
+
+- [ ]Advanced royalty calculation and tracking system
+- [ ]Automated royalty processing and payment management
+- [ ]Contract lifecycle management with automated alerts
+- [ ]Minimum guarantee tracking and reporting
+- [ ]Real-time royalty validation and auditing capabilities
+
+#### Design and Asset Management
+
+- [ ]Digital asset management system for brand guidelines and assets
+- [ ]Streamlined design approval workflow
+- [ ]Version control for design assets
+- [ ]Collaborative feedback and annotation tools
+- [ ]Asset usage tracking and rights management
+
+#### Analytics and Reporting
+
+- [ ]Real-time performance dashboards
+- [ ]Sales and revenue analytics by territory/category
+- [ ]Trend analysis and forecasting
+- [ ]Custom report generation
+- [ ]Market performance insights
+
+#### Compliance and Protection
+
+- [ ]Automated compliance monitoring
+- [ ]Brand protection and anti-counterfeiting tools
+- [ ]Quality control tracking
+- [ ]Factory and supplier compliance management
+- [ ]Authentication and verification systems
+
+#### Partner Management
+
+- [ ]Partner onboarding and relationship management
+- [ ]Territory and category management
+- [ ]Partner performance tracking
+- [ ]Collaborative communication tools
+- [ ]Partner portal for self-service access
+
+#### Integration Capabilities
+
+- [ ]Integration with accounting systems (e.g., QuickBooks)
+- [ ]E-commerce platform integration
+- [ ]ERP system integration
+- [ ]CRM integration
+- [ ]API availability for custom integrations
 
 ### app/**init**.py
 
@@ -281,7 +343,7 @@ The application follows a clean architecture with clear separation of concerns:
 ### app/services/rag_service.py
 
 - class RagService
-- async def search_similar_text
+- async def find_information_in_document_of_conversation
 - async def insert_to_rag
 - async def insert_to_rag_with_message
 - def split_document_into_chunks
@@ -306,7 +368,7 @@ The application follows a clean architecture with clear separation of concerns:
 ### app/utils/llm_tools.py
 
 - class LLMToolsService
-- async def search_similar_text
+- async def find_information_in_document_of_conversation
 - async def check_for_conversation_uploaded_design_file
 - async def check_for_conversation_uploaded_guidelines_file
 - async def check_for_conversation_review_or_approval_process_file
