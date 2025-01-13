@@ -4,7 +4,6 @@ from typing import Annotated, AsyncGenerator, Dict, List, Union
 
 import openai
 from fastapi import Depends
-from odmantic import ObjectId
 from tenacity import RetryError, retry, stop_after_attempt, wait_random_exponential
 
 from app.config.logging_config import logger
@@ -81,8 +80,6 @@ class OpenAIClient:
                 method_to_call = getattr(self.llm_tools_service, function_name, None)
 
 
-                print("function name: ", function_name)
-                print("all messages: ", messages)
                 if function_name == "get_current_conversation_id":
                     tool_result = "conversation_id: " + conversation_id
 
@@ -97,7 +94,6 @@ class OpenAIClient:
                 new_messages = messages + [
                     {"role": "user", "content": f"'calling this tool:{function_name}' gave us: {tool_result}"}
                 ]
-                print('all messages: ', new_messages)
                 yield "\n\n[TOOL_USAGE_APRV_AI_DONE]:" + " ".join(function_name.split("_")) + "\n\n"
 
                 nested_generator = self.stream_openai_llm_response(
