@@ -1,3 +1,0 @@
-Read all_files.txt content
-Take the first file and add comments clarifying whats happening in that same file for each place (the comments are very descriptive)
-When done, tell the user

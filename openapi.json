@@ -1,0 +1,710 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "APRV AI Backend",
+    "description": "Backend for APRV AI Chat Application",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/chat/create_prompt": {
+      "post": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Create Prompt",
+        "description": "Creates a new chat prompt and associates it with a conversation.\n\nArgs:\n    create_prompt_request: Contains the prompt text and conversation ID\n    request: FastAPI request object containing user information\n    mongo_service: MongoDB service for data persistence\n    message_service: Service for managing chat messages\n    conversation_service: Service for managing conversations\n\nReturns:\n    JSON response containing the created prompt details",
+        "operationId": "create_prompt_chat_create_prompt_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePromptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/generate/{message_id}": {
+      "get": {
+        "tags": [
+          "Chat"
+        ],
+        "summary": "Get Prompt Model Response",
+        "description": "Generates an AI response to a given prompt message and streams it back to the client.\n\nArgs:\n    message_id: ID of the message to generate response for\n    request: FastAPI request object containing user information\n    mongo_service: MongoDB service for data persistence\n    openai_client: OpenAI service for generating responses\n    message_service: Service for managing chat messages\n    conversation_service: Service for managing conversations\n\nReturns:\n    StreamingResponse that sends chunks of the AI response as they're generated",
+        "operationId": "get_prompt_model_response_chat_generate__message_id__get",
+        "parameters": [
+          {
+            "name": "message_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Message Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/upload/image": {
+      "post": {
+        "tags": [
+          "Upload"
+        ],
+        "summary": "Upload Image",
+        "operationId": "upload_image_upload_image_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_image_upload_image_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/upload/pdf": {
+      "post": {
+        "tags": [
+          "Upload"
+        ],
+        "summary": "Upload Pdf",
+        "operationId": "upload_pdf_upload_pdf_post",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_pdf_upload_pdf_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/upload": {
+      "get": {
+        "tags": [
+          "Upload"
+        ],
+        "summary": "Get All Conversation Files",
+        "operationId": "get_all_conversation_files_upload_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/google": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Auth Google",
+        "description": "Authenticate user via Google OAuth and return access token.",
+        "operationId": "auth_google_auth_google_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations": {
+      "get": {
+        "tags": [
+          "Conversation"
+        ],
+        "summary": "Get Conversations By User Id",
+        "description": "Get all conversations for a specific user\n\nArgs:\n    conversation_service: Injected ConversationService dependency\n    user_id: ID of the user to get conversations for\n\nReturns:\n    List of conversations associated with the user",
+        "operationId": "get_conversations_by_user_id_conversations_get",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/conversation": {
+      "get": {
+        "tags": [
+          "Conversation"
+        ],
+        "summary": "Get Conversation By Conversation Id",
+        "description": "Get a specific conversation by its ID\n\nArgs:\n    conversation_service: Injected ConversationService dependency\n    conversation_id: ID of the conversation to retrieve\n\nReturns:\n    The requested conversation object",
+        "operationId": "get_conversation_by_conversation_id_conversations_conversation_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/conversation-messages": {
+      "get": {
+        "tags": [
+          "Conversation"
+        ],
+        "summary": "Get Conversations Messages",
+        "description": "Get all messages for a specific conversation\n\nArgs:\n    message_service: Injected MessageService dependency\n    conversation_id: ID of the conversation to get messages for\n\nReturns:\n    List of messages in the conversation",
+        "operationId": "get_conversations_messages_conversations_conversation_messages_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/process-design": {
+      "get": {
+        "tags": [
+          "Conversation"
+        ],
+        "summary": "Process Design",
+        "description": "Start a background process to analyze and validate a design\n\nArgs:\n    background_tasks: FastAPI BackgroundTasks for running async tasks\n    doc_and_infer_service: Injected ApprovalService dependency\n    conversation_id: ID of the conversation containing the design\n\nReturns:\n    Immediate response indicating process has started",
+        "operationId": "process_design_conversations_process_design_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/process-status": {
+      "get": {
+        "tags": [
+          "Conversation"
+        ],
+        "summary": "Process Status",
+        "description": "Check the status of a design processing task\n\nArgs:\n    mongo_service: Injected MongoService dependency\n    conversation_id: ID of the conversation to check status for\n\nReturns:\n    JSONResponse with task status and ID",
+        "operationId": "process_status_conversations_process_status_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/process-result": {
+      "get": {
+        "tags": [
+          "Conversation"
+        ],
+        "summary": "Get Process Result",
+        "description": "Get the results of a completed design processing task\n\nArgs:\n    mongo_service: Injected MongoService dependency\n    task_id: ID of the task to get results for\n\nReturns:\n    List of review results for the task",
+        "operationId": "get_process_result_conversations_process_result_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/conversation-reviews": {
+      "get": {
+        "tags": [
+          "Conversation"
+        ],
+        "summary": "Get Conversation Reviews",
+        "description": "Get all reviews associated with a conversation\n\nArgs:\n    mongo_service: Injected MongoService dependency\n    conversation_id: ID of the conversation to get reviews for\n\nReturns:\n    List of reviews for the conversation",
+        "operationId": "get_conversation_reviews_conversations_conversation_reviews_get",
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "title": "Conversation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AuthRequest": {
+        "properties": {
+          "auth_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth Token"
+          },
+          "access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Token"
+          }
+        },
+        "type": "object",
+        "title": "AuthRequest",
+        "description": "Pydantic model representing authentication request data.\n\nThis model is used to validate and structure incoming authentication data\nfrom API requests. Both fields are optional to support different auth flows."
+      },
+      "Body_upload_image_upload_image_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_image_upload_image_post"
+      },
+      "Body_upload_pdf_upload_pdf_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_pdf_upload_pdf_post"
+      },
+      "CreatePromptRequest": {
+        "properties": {
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "conversation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conversation Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "prompt"
+        ],
+        "title": "CreatePromptRequest"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

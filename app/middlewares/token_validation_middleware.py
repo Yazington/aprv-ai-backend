@@ -25,7 +25,7 @@ class TokenValidationMiddleware(BaseHTTPMiddleware):
 
         # Skip token validation for specific paths if necessary
         # Skip token validation for the Google authentication endpoint.
-        if request.url.path == "/auth/google":
+        if request.url.path == "/auth/google" or request.url.path == "/docs" or request.url.path == "/openapi.json":
             return await call_next(request)
 
         # Extract the token from Authorization header or URL query parameter

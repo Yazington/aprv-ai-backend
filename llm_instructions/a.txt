@@ -1,2 +1,0 @@
-List all source code files in the project and put them in a file called llm_instructions/all_files.txt
-Add function names for each files in the llm_instructions/all_files.txt

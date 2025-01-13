@@ -50,3 +50,9 @@ app.include_router(chat.router)  # Chat-related endpoints
 app.include_router(upload.router)  # File upload endpoints
 app.include_router(auth.router)  # Authentication endpoints
 app.include_router(conversation.router)  # Conversation management endpoints
+
+# Generate and save OpenAPI schema to file
+with open("openapi.json", "w") as f:
+    import json
+    openapi_schema = app.openapi()
+    json.dump(openapi_schema, f, indent=2)
