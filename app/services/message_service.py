@@ -2,7 +2,7 @@
 
 from typing import Annotated, Optional, List
 from fastapi import Depends
-from odmantic import ObjectId
+from odmantic import ObjectId, query
 
 from app.config.logging_config import logger
 from app.models.message import Message
@@ -71,15 +71,19 @@ class MessageService:
         """
         if conversation_id:
             try:
+                logger.info(f"Retrieving message history for conversation: {conversation_id}")
                 past_messages = await self.mongo_service.engine.find(
                     Message,
                     Message.conversation_id == ObjectId(conversation_id),
-                    sort=[(Message.created_at, 1)]  # 1 for ascending
+                    sort=(query.asc(Message.created_at),)
                 )
                 past_messages = [msg for msg in past_messages if str(msg.id) != exclude_message_id]
+                logger.info(f"Retrieved {len(past_messages)} messages (excluding excluded message)")
                 return "\n".join(msg.content for msg in past_messages)
             except Exception as e:
                 logger.error(f"Error retrieving message history: {str(e)}")
+                logger.error(f"Exception type: {type(e).__name__}")
+                logger.error(f"Full exception details: {str(e)}")
                 return ""
         return ""
 
@@ -96,13 +100,21 @@ class MessageService:
         if not conversation_id:
             return None
         try:
-            return await self.mongo_service.engine.find(
+            logger.info(f"Attempting to retrieve messages for conversation: {conversation_id}")
+            logger.info("Query parameters: model=Message, filter=conversation_id match, sort=created_at ascending")
+            
+            messages = await self.mongo_service.engine.find(
                 Message,
                 Message.conversation_id == ObjectId(conversation_id),
-                sort=[(Message.created_at, 1)]
+                sort=(query.asc(Message.created_at),)  # Using tuple of asc descriptor
             )
+            
+            logger.info(f"Successfully retrieved {len(messages) if messages else 0} messages")
+            return messages
         except Exception as e:
             logger.error(f"Error retrieving conversation messages: {str(e)}")
+            logger.error(f"Exception type: {type(e).__name__}")
+            logger.error(f"Full exception details: {str(e)}")
             return None
 
     def get_tokenized_message_count(self, message: str) -> int:
