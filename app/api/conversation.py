@@ -123,12 +123,18 @@ async def process_status(mongo_service: Annotated[MongoService, Depends(get_mong
     if not conversation_id:
         return JSONResponse("Please provide a conversation_id", status_code=400)
 
-    conversation_of_task = await Conversation.find_one(Conversation.id == ObjectId(conversation_id))
+    conversation_of_task = await mongo_service.engine.find_one(
+        Conversation,
+        Conversation.id == ObjectId(conversation_id)
+    )
 
     if not conversation_of_task.design_process_task_id:
         return JSONResponse("conversation doesn't have a task", status_code=400)
 
-    task_of_conversation = await Task.find_one(Task.id == conversation_of_task.design_process_task_id)
+    task_of_conversation = await mongo_service.engine.find_one(
+        Task,
+        Task.id == conversation_of_task.design_process_task_id
+    )
     if task_of_conversation.status == TaskStatus.IN_PROGRESS.name:
         return JSONResponse(jsonable_encoder({"task_id": str(task_of_conversation.id)}), status_code=202)
     if task_of_conversation.status == TaskStatus.COMPLETE.name:
@@ -150,7 +156,10 @@ async def get_process_result(mongo_service: Annotated[MongoService, Depends(get_
     if not task_id:
         return JSONResponse("Please provide a task_id", status_code=400)
 
-    task_of_conversation = await Task.find_one(Task.id == ObjectId(task_id))
+    task_of_conversation = await mongo_service.engine.find_one(
+        Task,
+        Task.id == ObjectId(task_id)
+    )
     if not task_of_conversation.generated_txt_id:
         return JSONResponse(
             jsonable_encoder(
@@ -158,7 +167,10 @@ async def get_process_result(mongo_service: Annotated[MongoService, Depends(get_
             ),
             status_code=500,
         )
-    reviews = await Review.find(Review.conversation_id == task_of_conversation.conversation_id).to_list()
+    reviews = await mongo_service.engine.find(
+        Review,
+        Review.conversation_id == task_of_conversation.conversation_id
+    )
     return reviews
 
 
@@ -177,15 +189,24 @@ async def get_conversation_reviews(mongo_service: Annotated[MongoService, Depend
     if not conversation_id:
         return JSONResponse("Please provide a conversation_id", status_code=400)
 
-    conversation = await Conversation.find_one(Conversation.id == ObjectId(conversation_id))
+    conversation = await mongo_service.engine.find_one(
+        Conversation,
+        Conversation.id == ObjectId(conversation_id)
+    )
     if not conversation:
         return JSONResponse("Conversation not found", status_code=404)
 
     task = None
     if conversation.design_process_task_id:
-        task = await Task.find_one(Task.id == conversation.design_process_task_id)
+        task = await mongo_service.engine.find_one(
+            Task,
+            Task.id == conversation.design_process_task_id
+        )
     if not task or task.status == TaskStatus.COMPLETE:
         return JSONResponse("Task Incomplete", status_code=400)
 
-    reviews = await Review.find(Review.conversation_id == ObjectId(conversation_id)).to_list()
+    reviews = await mongo_service.engine.find(
+        Review,
+        Review.conversation_id == ObjectId(conversation_id)
+    )
     return reviews

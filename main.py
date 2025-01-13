@@ -85,6 +85,6 @@ app.include_router(auth.router)  # Authentication endpoints
 app.include_router(conversation.router)  # Conversation management endpoints
 
 if __name__ == "__main__":
-    config = uvicorn.Config("main:app", port=9000, log_level="info")
+    config = uvicorn.Config("main:app", port=9000, log_level="info", reload=True)
     server = uvicorn.Server(config)
     server.run()

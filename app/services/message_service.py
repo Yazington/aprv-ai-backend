@@ -1,10 +1,8 @@
 # app/services/message_service.py
 
-from typing import Annotated, Optional
-
+from typing import Annotated, Optional, List
 from fastapi import Depends
-from beanie import PydanticObjectId
-from odmantic.query import asc
+from odmantic import ObjectId
 
 from app.config.logging_config import logger
 from app.models.message import Message
@@ -29,12 +27,12 @@ class MessageService:
         """
         try:
             message = Message(
-                conversation_id=PydanticObjectId(conversation_id),
+                conversation_id=ObjectId(conversation_id),
                 content=content,
                 is_from_human=True,
                 user_id=user_id,
             )
-            return await message.save()
+            return await self.mongo_service.engine.save(message)
         except Exception as e:
             logger.error(f"Error creating message: {str(e)}")
             raise
@@ -50,7 +48,7 @@ class MessageService:
         """
         try:
             logger.info(f"Attempting to retrieve message with ID: {message_id}")
-            message = await Message.get(PydanticObjectId(message_id))
+            message = await self.mongo_service.engine.find_one(Message, Message.id == ObjectId(message_id))
             if message:
                 logger.info(f"Found message: {message.id}, conversation_id: {message.conversation_id}")
             else:
@@ -73,9 +71,11 @@ class MessageService:
         """
         if conversation_id:
             try:
-                past_messages = await Message.find(
-                    Message.conversation_id == PydanticObjectId(conversation_id),
-                ).sort("+created_at").to_list()
+                past_messages = await self.mongo_service.engine.find(
+                    Message,
+                    Message.conversation_id == ObjectId(conversation_id),
+                    sort=[(Message.created_at, 1)]  # 1 for ascending
+                )
                 past_messages = [msg for msg in past_messages if str(msg.id) != exclude_message_id]
                 return "\n".join(msg.content for msg in past_messages)
             except Exception as e:
@@ -83,7 +83,7 @@ class MessageService:
                 return ""
         return ""
 
-    async def get_conversations_messages(self, conversation_id: str):
+    async def get_conversations_messages(self, conversation_id: str) -> Optional[List[Message]]:
         """Retrieves all messages for a given conversation.
 
         Args:
@@ -96,9 +96,11 @@ class MessageService:
         if not conversation_id:
             return None
         try:
-            return await Message.find(
-                Message.conversation_id == PydanticObjectId(conversation_id)
-            ).sort("+created_at").to_list()
+            return await self.mongo_service.engine.find(
+                Message,
+                Message.conversation_id == ObjectId(conversation_id),
+                sort=[(Message.created_at, 1)]
+            )
         except Exception as e:
             logger.error(f"Error retrieving conversation messages: {str(e)}")
             return None

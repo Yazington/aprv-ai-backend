@@ -2,7 +2,7 @@ import os
 
 # Import necessary modules for loading environment variables and settings
 from dotenv import load_dotenv
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Load environment variables from a .env file into the environment
 load_dotenv()
@@ -25,9 +25,10 @@ class Settings(BaseSettings):
     aws_secret_access_key: str = os.getenv("AWS_SECRET_ACCESS_KEY", "")
     aws_region: str = os.getenv("AWS_REGION", "us-east-1")  # Default to us-east-1
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8"
+    )
 
 
 # Instantiate the Settings class to load the settings

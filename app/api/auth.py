@@ -21,7 +21,7 @@ async def auth_google(
     try:
         # Verify Google token and get token info
         token_info = await auth_service.verify_google_token(auth_request.auth_token)
-
+        print(token_info)
         # Validate token issuer (must be from Google)
         if token_info["iss"] not in ["accounts.google.com", "https://accounts.google.com"]:
             raise HTTPException(status_code=401, detail="Invalid token issuer - must be from Google")
@@ -34,10 +34,10 @@ async def auth_google(
         try:
             # Create GoogleAuthInfo instance from token data
             google_auth_info_instance = GoogleAuthInfo(**token_info)
-
+            print(google_auth_info_instance)
             # Get or create user in database
             user = await user_service.get_or_create_user(email, google_auth_info_instance)
-
+            print(user)
             # Generate access token for the user
             access_token, expiration_time = await auth_service.generate_access_token(user)
 

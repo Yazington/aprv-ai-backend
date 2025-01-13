@@ -11,7 +11,6 @@ from typing import Annotated, List, Tuple, Union
 
 import fitz
 from fastapi.params import Depends
-from gridfs import GridOut
 from odmantic import ObjectId
 
 from app.config.logging_config import logger
@@ -81,9 +80,8 @@ class ApprovalService:
                 # Create inference resource
                 page_inference_resource = LLMPageInferenceResource()
                 page_inference_resource.page_number = page_num
-                # Extract text from page using PyMuPDF's built-in method
+
                 try:
-                    # Ignore type checking for PyMuPDF methods
                     text = page.get_text("text")  # type: ignore
                     page_inference_resource.given_text = text.strip() if text else ""
                 except Exception as e:
@@ -147,7 +145,7 @@ class ApprovalService:
             review_description=content.review_description,
             guideline_achieved=content.guideline_achieved,
         )
-        await review.save()
+        await self.mongo_service.engine.save(review)
 
         page_inference_resource = LLMPageInferenceResource()
         page_inference_resource.page_number = extracted_pdf_content.page_number
@@ -173,14 +171,17 @@ class ApprovalService:
         """
         logger.info("Starting background task for conversation_id: %s", conversation_id)
 
-        conversation = await Conversation.find_one(Conversation.id == ObjectId(conversation_id))
+        conversation = await self.mongo_service.engine.find_one(
+            Conversation,
+            Conversation.id == ObjectId(conversation_id)
+        )
 
         task = await self.create_task(conversation_id)
 
         if not conversation:
             task.status = TaskStatus.FAILED.name
             logger.error("task failed: no conversation for conversation_id ", str(conversation_id))
-            await task.save()
+            await self.mongo_service.engine.save(task)
             return
 
         try:
@@ -190,13 +191,13 @@ class ApprovalService:
             if not contract_id or not design_id:
                 task.status = TaskStatus.FAILED.name
                 logger.error("task failed: no contract or design for conversation_id ", str(conversation_id))
-                await task.save()
+                await self.mongo_service.engine.save(task)
                 return
 
             conversation.design_process_task_id = task.id
-            await conversation.save()
+            await self.mongo_service.engine.save(conversation)
 
-            contract_bytes, design_bytes = self.get_existing_files_as_bytes(self.mongo_service, contract_id, design_id)
+            contract_bytes, design_bytes = await self.get_existing_files_as_bytes(contract_id, design_id)
 
             llm_inference_per_page_resources = await self.validate_design_against_all_documents(
                 contract_bytes,
@@ -212,33 +213,35 @@ class ApprovalService:
             # Convert the list to a plain text string (each item on a new line)
             text_data = "\n".join(str(resource) for resource in llm_inference_per_page_resources)
 
-            # Store the text data directly in GridFS
-            txt_file_id = self.mongo_service.fs.put(text_data.encode("utf-8"), filename=f"{conversation_id}_generated.txt")
+            # Store the text data in GridFS using odmantic
+            txt_file_id = await self.mongo_service.engine.get_database().fs.files.insert_one({
+                "filename": f"{conversation_id}_generated.txt",
+                "data": text_data.encode("utf-8")
+            })
 
             # Update the task with success status and store the text file ID
             task.status = TaskStatus.COMPLETE.name
-            task.generated_txt_id = txt_file_id
-            await task.save()
+            task.generated_txt_id = txt_file_id.inserted_id
+            await self.mongo_service.engine.save(task)
             await self.rag_service.insert_to_rag(conversation_id)
         except Exception as e:
             # Update the task with a failed status if an exception occurs
             task.status = TaskStatus.FAILED.name
             logger.error(f"Task failed: {str(e)}")
-            await task.save()
+            await self.mongo_service.engine.save(task)
 
-    def get_existing_files_as_bytes(self, mongo_service: MongoService, guidelines_id, design_id):
+    async def get_existing_files_as_bytes(self, guidelines_id, design_id):
         """
         Retrieve stored files from MongoDB GridFS as byte content
         Args:
-            mongo_service: MongoDB service instance
             guidelines_id: ID of guidelines file
             design_id: ID of design file
 
         Returns:
             Tuple of (guidelines_bytes, design_bytes)
         """
-        guidelines_file: GridOut = self.mongo_service.fs.find_one({"_id": guidelines_id})
-        design_file: GridOut = self.mongo_service.fs.find_one({"_id": design_id})
+        guidelines_file = await self.mongo_service.engine.get_database().fs.files.find_one({"_id": ObjectId(guidelines_id)})
+        design_file = await self.mongo_service.engine.get_database().fs.files.find_one({"_id": ObjectId(design_id)})
 
         if not guidelines_file:
             logger.error("No contract file/null file")
@@ -248,12 +251,7 @@ class ApprovalService:
             logger.error("No design file/null file")
             raise Exception("No design file/null file")
 
-            # Read the contract bytes
-        contract_bytes = guidelines_file.read()
-
-        # Read the design bytes
-        design_bytes = design_file.read()
-        return contract_bytes, design_bytes
+        return guidelines_file["data"], design_file["data"]
 
     async def create_task(self, conversation_id):
         """
@@ -273,7 +271,7 @@ class ApprovalService:
                 conversation_id=ObjectId(conversation_id),
                 status=TaskStatus.IN_PROGRESS.name
             )
-            await task.save()
+            await self.mongo_service.engine.save(task)
             logger.info("Task saved successfully")
         except Exception as e:
             logger.error("Error saving task to DB: %s", str(e))
@@ -330,9 +328,9 @@ class ApprovalService:
             f"Brand Guideline Text:\n{guideline_text}\n\n"
             f"Brand Guideline Tables:\n{guideline_tables}\n\n"
             "Please follow these steps:\n"
-            "1. Check if the Brand Guideline Text is related to brand guidelines. If it’s not, set 'guideline_achieved' to None and stop. If it is, continue.\n"
+            "1. Check if the Brand Guideline Text is related to brand guidelines. If it's not, set 'guideline_achieved' to None and stop. If it is, continue.\n"
             "2. review_description (string): For each part of the Brand Guideline (text, images, tables), describe if the design aligns with it.\n"
-            "3. guideline_achieved (True, False, or None): Rate how suitable the design is based on the Brand Guideline. If the Brand Guideline isn’t relevant, return None."
+            "3. guideline_achieved (True, False, or None): Rate how suitable the design is based on the Brand Guideline. If the Brand Guideline isn't relevant, return None."
         )
 
         content: Union[BrandGuidelineReviewResource, None] = await openai_client.get_openai_multi_images_response(
@@ -346,8 +344,7 @@ class ApprovalService:
             design_bytes,
             guideline_image_bytes_list,
         )
-        # print(prompt)
-        # print(content)
+
         if content:
             tokens_used = num_tokens_from_messages([prompt, content.review_description])
 
@@ -375,7 +372,6 @@ class ApprovalService:
         Returns:
             List of formatted table strings
         """
-
         extracted_data: List[str] = []  # type:ignore
         for table in tables:
             # Format the table using the formatter

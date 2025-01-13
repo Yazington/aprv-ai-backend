@@ -1,11 +1,8 @@
-from datetime import datetime
-from typing import List, Optional
-
-from beanie import Document, Indexed, PydanticObjectId
-from pydantic import BaseModel
+from typing import Optional
+from odmantic import Model, Field, Index
 
 
-class GoogleAuthInfo(BaseModel):
+class GoogleAuthInfo(Model):
     iss: Optional[str] = None
     azp: Optional[str] = None
     aud: Optional[str] = None
@@ -21,37 +18,30 @@ class GoogleAuthInfo(BaseModel):
     exp: Optional[int] = None
     jti: Optional[str] = None
 
-    @classmethod
-    def create(cls, idinfo):
-        return cls(
-            iss=idinfo.get("iss"),
-            azp=idinfo.get("azp"),
-            aud=idinfo.get("aud"),
-            sub=idinfo.get("sub"),
-            email=idinfo.get("email"),
-            email_verified=idinfo.get("email_verified"),
-            nbf=idinfo.get("nbf"),
-            name=idinfo.get("name"),
-            picture=idinfo.get("picture"),
-            given_name=idinfo.get("given_name"),
-            family_name=idinfo.get("family_name"),
-            iat=idinfo.get("iat"),
-            exp=idinfo.get("exp"),
-            jti=idinfo.get("jti"),
-        )
+    # @classmethod
+    # def create(cls, idinfo):
+    #     return cls(
+    #         iss=idinfo.get("iss"),
+    #         azp=idinfo.get("azp"),
+    #         aud=idinfo.get("aud"),
+    #         sub=idinfo.get("sub"),
+    #         email=idinfo.get("email"),
+    #         email_verified=idinfo.get("email_verified"),
+    #         nbf=idinfo.get("nbf"),
+    #         name=idinfo.get("name"),
+    #         picture=idinfo.get("picture"),
+    #         given_name=idinfo.get("given_name"),
+    #         family_name=idinfo.get("family_name"),
+    #         iat=idinfo.get("iat"),
+    #         exp=idinfo.get("exp"),
+    #         jti=idinfo.get("jti"),
+    #     )
 
 
-class User(Document):
-    name: Optional[str] = None
-    email: Indexed(str)  # Indexed field for better query performance
-    all_conversations_ids: List[PydanticObjectId] = []  # List of conversation IDs
-    created_at: datetime = datetime.utcnow()
-    modified_at: datetime = datetime.utcnow()
-    google_auth: GoogleAuthInfo
-    current_access_token: Optional[str] = None
-
-    class Settings:
-        name = "users"
-        indexes = [
-            [("email", 1), ("created_at", 1), ("modified_at", 1)]
-        ]
+class User(Model):
+    """User model for storing user information."""
+    email: str = Field(index=True)
+    given_name: str
+    family_name: str
+    picture: str
+    refresh_token: Optional[str] = None

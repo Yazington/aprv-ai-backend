@@ -1,8 +1,8 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional
-
-from beanie import Document, Indexed, PydanticObjectId
+from odmantic import Model, Field, Index, ObjectId
+from pydantic import BaseModel
 
 
 class TaskStatus(Enum):
@@ -11,19 +11,16 @@ class TaskStatus(Enum):
     FAILED = 2
 
 
-class Task(Document):
-    conversation_id: Optional[PydanticObjectId] = None  # Make it optional
+class Task(Model):
+    conversation_id: Optional[ObjectId] = None  # Keep using ObjectId for MongoDB compatibility
     status: str
-    generated_txt_id: Optional[PydanticObjectId] = None
-    created_at: datetime = datetime.utcnow()
-    modified_at: datetime = datetime.utcnow()
+    generated_txt_id: Optional[ObjectId] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    modified_at: datetime = Field(default_factory=datetime.utcnow)
 
-    class Settings:
-        name = "tasks"
-        indexes = [
-            [
-                ("conversation_id", 1),
-                ("created_at", 1),
-                ("modified_at", 1)
-            ]
+    model_config = {
+        "collection": "tasks",
+        "indexes": lambda: [
+            Index(Task.conversation_id, Task.created_at, Task.modified_at)
         ]
+    }

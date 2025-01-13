@@ -1,9 +1,10 @@
 from typing import Optional
 
-from pydantic import BaseModel, Field, validator
+from odmantic import Model, Field
+from pydantic import BaseModel,  field_validator
 
 
-class AuthRequest(BaseModel):
+class AuthRequest(Model):
     """Pydantic model representing authentication request data.
 
     This model is used to validate and structure incoming authentication data
@@ -21,7 +22,7 @@ class AuthRequest(BaseModel):
         description="JWT token for API authorization",
     )
 
-    @validator("auth_token")
+    @field_validator("auth_token", mode='before')
     def validate_auth_token(cls, v):
         """Validate the auth token format"""
         if not v or len(v.strip()) < 50:

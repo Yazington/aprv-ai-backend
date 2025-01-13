@@ -8,8 +8,6 @@ from app.config.settings import settings
 from app.config.logging_config import logger
 import base64
 from botocore.exceptions import ClientError
-import fitz  # PyMuPDF
-
 
 class PDFExtractionService:
     """Service for extracting text and tables from PDF documents."""
@@ -32,49 +30,6 @@ class PDFExtractionService:
     def _check_pdf_header(self, pdf_bytes: bytes) -> bool:
         """Check if file starts with PDF header."""
         return pdf_bytes.startswith(b"%PDF-")
-
-    def _convert_pdf_to_images(self, pdf_bytes: bytes) -> bytes:
-        """Convert PDF to images and back to PDF for Textract compatibility."""
-        try:
-            # Open PDF with PyMuPDF
-            pdf_document = fitz.open(stream=pdf_bytes, filetype="pdf")
-            output_pdf = fitz.open()  # New PDF for storing images
-
-            logger.info(f"Converting PDF with {len(pdf_document)} pages")
-
-            for page_num in range(len(pdf_document)):
-                page = pdf_document[page_num]
-                # Convert page to image with higher resolution
-                zoom = 2.0  # Increase resolution
-                mat = fitz.Matrix(zoom, zoom)
-                pix = page.get_pixmap(matrix=mat, alpha=False)
-
-                # Create a new page with same dimensions
-                rect = page.rect
-                new_page = output_pdf.new_page(width=rect.width, height=rect.height)
-
-                # Convert pixmap to image and insert into new page
-                img_rect = fitz.Rect(0, 0, rect.width, rect.height)
-                new_page.insert_image(img_rect, pixmap=pix)
-
-                if page_num % 10 == 0:  # Log progress every 10 pages
-                    logger.info(f"Converted page {page_num + 1}/{len(pdf_document)}")
-
-            # Save the new PDF to bytes
-            output_stream = BytesIO()
-            output_pdf.save(output_stream, garbage=4, deflate=True, clean=True)
-            output_stream.seek(0)
-            converted_bytes = output_stream.read()
-
-            # Clean up
-            pdf_document.close()
-            output_pdf.close()
-
-            logger.info("Successfully converted PDF to image-based format")
-            return converted_bytes
-        except Exception as e:
-            logger.error(f"Error converting PDF: {str(e)}")
-            return pdf_bytes
 
     async def extract_tables_and_text_from_file(
         self, pdf_bytes: bytes, keep_document_open: bool = False
@@ -220,18 +175,7 @@ class PDFExtractionService:
             except ClientError as e:
                 error_code, error_message = self._get_aws_error_info(e)
                 logger.error(f"AWS Textract error: {error_code} - {error_message}")
-                if error_code == "UnsupportedDocumentException":
-                    logger.info("Document format not supported, attempting conversion")
-                    # Convert PDF to image-based format
-                    converted_pdf = self._convert_pdf_to_images(pdf_bytes)
-                    try:
-                        response = self.textract.analyze_document(Document={"Bytes": converted_pdf}, FeatureTypes=["TABLES"])
-                        logger.info("Successfully processed converted PDF")
-                    except ClientError as e2:
-                        logger.error(f"Failed to process converted PDF: {str(e2)}")
-                        return {}, pdf_bytes
-                else:
-                    return {}, pdf_bytes
+                return {}, pdf_bytes
 
             # Process tables from response
             tables_with_pages: Dict[int, List[str]] = {}

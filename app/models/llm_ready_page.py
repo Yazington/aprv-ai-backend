@@ -1,14 +1,15 @@
 from typing import Any, List, Optional
 
+from odmantic import Model
 from pydantic import BaseModel
 
 
-class BrandGuidelineReviewResource(BaseModel):
+class BrandGuidelineReviewResource(Model):
     review_description: Optional[str] = None
     guideline_achieved: Optional[bool] = None
 
 
-class LLMPageInferenceResource(BaseModel):
+class LLMPageInferenceResource(Model):
     page_number: Optional[int] = None
     given_text: Optional[str] = None
     given_tables: Optional[List[str]] = []
