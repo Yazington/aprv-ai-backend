@@ -35,7 +35,6 @@ A FastAPI project with integrated Ruff, Mypy, and Black for linting, type checki
 # Commands
 
 ```
-run app under docker: docker-compose up -d
 get logs for app under docker: docker logs $(docker ps -a | grep aprv-ai | awk '{print $1}')
 start app: uvicorn app.main:app --reload --port 9000
 ```
@@ -43,12 +42,34 @@ start app: uvicorn app.main:app --reload --port 9000
 DOCKER:
 
 ```
-docker build --build-arg OPENAI_API_KEY=api-key \
-	     --build-arg APRV_AI_API_KEY=api-key \
-	     --build-arg GOOGLE_CLIENT_ID=client-id \
-	     --build-arg MONGO_URL=db-url \
-	     -t my-fastapi-app .
-docker run -p 9000:9000   --network=aprv-ai-local   --cpus="8"   --memory="8g"   -v /home/yaz/Workspace/aprv-ai/aprv-ai-backend/data:/app/data   my-fastapi-app
+# 1. Create network if not exists
+docker network create aprv-ai-local
+
+# 2. Start MongoDB first with explicit network and name
+docker run -d --name mongodb \
+  --network=aprv-ai-local \
+  -e MONGO_INITDB_ROOT_USERNAME=root \
+  -e MONGO_INITDB_ROOT_PASSWORD=example \
+  mongo:latest
+
+# remove if needed before: 
+docker remove my-fastapi-app
+
+# 3. Build backend container (Takes long currently, needs optimization)
+docker build --no-cache -t my-fastapi-app .
+
+# 4. Then start your app container
+docker run -p 9000:9000 \
+  --network=aprv-ai-local \
+  --cpus="8" \
+  --memory="8g" \
+  -e GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID \
+  -e MONGO_URL="mongodb://root:example@mongodb:27017/" \
+  -e OPENAI_API_KEY=$OPENAI_API_KEY \
+  -e PINECONE_API_KEY=$PINECONE_API_KEY \
+  -e APRV_AI_API_KEY=$APRV_AI_API_KEY \
+  --name my-fastapi-app \
+  my-fastapi-app
 ```
 
 ## Codebase Overview
@@ -281,7 +302,7 @@ The application follows a clean architecture with clear separation of concerns:
 ### app/services/rag_service.py
 
 - class RagService
-- async def search_similar_text
+- async def search_similar_text_in_documents_or_guidelines
 - async def insert_to_rag
 - async def insert_to_rag_with_message
 - def split_document_into_chunks
@@ -306,9 +327,9 @@ The application follows a clean architecture with clear separation of concerns:
 ### app/utils/llm_tools.py
 
 - class LLMToolsService
-- async def search_similar_text
+- async def search_similar_text_in_documents_or_guidelines
 - async def check_for_conversation_uploaded_design_file
-- async def check_for_conversation_uploaded_guidelines_file
+- async def check_for_conversation_uploaded_guidelines_files
 - async def check_for_conversation_review_or_approval_process_file
 - async def get_guidelines_page_review
 - def get_llm_tools_service

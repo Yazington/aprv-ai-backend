@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 class BrandGuidelineReviewResource(BaseModel):
     review_description: Optional[str] = None
-    guideline_achieved: Optional[bool] = None
+    guideline_achieved: Optional[str] = None
 
 
 class LLMPageInferenceResource(BaseModel):
@@ -15,24 +15,24 @@ class LLMPageInferenceResource(BaseModel):
     give_images: Optional[Any] = None
     inference_response: Optional[BrandGuidelineReviewResource] = None
 
-    def __str__(self):
-        # Join tables if they exist
-        tables_text = ""
-        if self.given_tables and self.given_tables != []:
-            tables_text = "\n".join(self.given_tables)
-        # print("table fd up ?", tables_text if self.given_tables else "")
-        # Extract inference details if available
-        infer_response = ""
-        review_achieved = ""
-        if self.inference_response:
-            infer_response = self.inference_response.review_description or ""
-            review_achieved = self.inference_response.guideline_achieved or ""
+    # def __str__(self) -> str:  # Explicitly type annotate the return type
+    #     # Join tables if they exist
+    #     tables_text: str = ""
+    #     if self.given_tables and self.given_tables != []:
+    #         tables_text = "\n".join(self.given_tables)
 
-        # Return formatted string
-        return (
-            f"\npage number: {self.page_number or 'N/A'}\n"
-            f"text of {self.page_number or 'N/A'}: {self.given_text or 'N/A'}\n"
-            f"tables of {self.page_number or 'N/A'}:\n{tables_text}\n"
-            f"RESULT OF DESIGN AGAINST THE TEXT OF PAGE {self.page_number or 'N/A'}: {infer_response}\n"
-            f"RESULT OF WHETHER OR NOT DESIGN RESPECTS PAGE {self.page_number or 'N/A'}: {review_achieved}\n"
-        )
+    #     # Extract inference details if available
+    #     infer_response: str = ""
+    #     review_achieved: str = ""
+    #     if self.inference_response:
+    #         infer_response = self.inference_response.review_description or ""
+    #         review_achieved = self.inference_response.guideline_achieved or ""
+
+    #     # Return formatted string
+    #     return (
+    #         f"\npage number: {self.page_number or 'N/A'}\n"
+    #         f"text of {self.page_number or 'N/A'}: {self.given_text or 'N/A'}\n"
+    #         f"tables of {self.page_number or 'N/A'}:\n{tables_text}\n"
+    #         f"RESULT OF DESIGN AGAINST THE TEXT OF PAGE {self.page_number or 'N/A'}: {infer_response}\n"
+    #         f"RESULT OF WHETHER OR NOT DESIGN RESPECTS PAGE {self.page_number or 'N/A'}: {review_achieved}\n"
+    #     )

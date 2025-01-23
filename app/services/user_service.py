@@ -18,8 +18,8 @@ class UserService:
         try:
             return await self.mongo_service.engine.find_one(User, {"email": email})
         except PyMongoError as e:
-            # Handle or log the error as needed
-            raise Exception("Database error during fetching user by email") from e
+            # Include the original error details
+            raise Exception(f"Database error during fetching user by email: {str(e)}") from e
 
     async def create_user(self, email: str, google_auth_info: GoogleAuthInfo) -> User:
         """Create a new user."""

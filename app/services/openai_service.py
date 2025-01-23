@@ -90,7 +90,15 @@ class OpenAIClient:
                     raise AttributeError(
                         f"Method '{function_name}' not found or not callable in llm_tools_service"
                     )
-                print("tool_result: ", tool_result)
+                # if isinstance(tool_result, str):
+                #     if len(tool_result) > 100:
+                #         log_tool_result = tool_result[:40] + "..." + tool_result[-40:]
+                #     else:
+                #         log_tool_result = tool_result
+                # else:
+                #     log_tool_result = str(tool_result)  # Ensure it's stringified
+                # logger.info(f"tool_result: {log_tool_result}")
+
                 new_messages = messages + [
                     {"role": "user", "content": f"'calling this tool:{function_name}' gave us: {tool_result}"}
                 ]

@@ -8,9 +8,9 @@ from odmantic.query import asc
 class Conversation(Model):
     all_messages_ids: List[ObjectId] = Field(default_factory=list)
     user_id: ObjectId
-    guidelines_id: Optional[ObjectId] = None
     design_id: Optional[ObjectId] = None
     design_process_task_id: Optional[ObjectId] = None
+    uploaded_files_ids: List[ObjectId] = []
     thumbnail_text: Optional[str] = "Empty Conversation"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     modified_at: datetime = Field(default_factory=datetime.utcnow)

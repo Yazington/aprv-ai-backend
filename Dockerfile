@@ -1,7 +1,6 @@
-# Use a slim Python base image for your environment
-FROM python:3.11-slim
+# Stage 1: Builder
+FROM python:3.11-slim AS builder
 
-# Install system dependencies
 RUN apt-get update && apt-get install -y \
     pkg-config \
     poppler-utils \
@@ -9,38 +8,35 @@ RUN apt-get update && apt-get install -y \
     build-essential && \
     rm -rf /var/lib/apt/lists/*
 
-# Set the working directory
 WORKDIR /app
+RUN python -m venv /app/venv
+ENV PATH="/app/venv/bin:$PATH"
 
-# Copy your requirements.txt file into the container
 COPY requirements.txt .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir -r requirements.txt gunicorn memory_profiler
 
-# Install all Python dependencies globally
-RUN pip install -r requirements.txt && \
-    pip install \
-    git+https://github.com/openai/swarm.git \
-    git+https://github.com/HKUDS/LightRAG.git@6b070af92e014fbb43f4424c2bb3707467ef7e56 && \
-    pip install gunicorn memory_profiler
+# Cleanup builder stage
+RUN find /app/venv -type d -name 'tests' -exec rm -rf {} + && \
+    rm -rf /app/venv/lib/python3.11/site-packages/pip
 
-# Add a non-root user and change ownership of /app directory
-RUN adduser --disabled-password appuser && \
+# Stage 2: Runtime
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    poppler-utils && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY --from=builder /app/venv /app/venv
+ENV PATH="/app/venv/bin:$PATH"
+
+RUN useradd -m appuser && \
     chown -R appuser:appuser /app
-
 USER appuser
 
-# Copy the application code
 COPY ./app ./app
 
-# Expose the port your app runs on
 EXPOSE 9000
-
-# Set environment variables if needed at runtime (removed secrets)
-# You can set default values here if necessary, or omit entirely
-# ENV SOME_ENV_VAR=default_value
-
-################ PROFILING ################
-# CMD ["mprof", "run", "--include-children", "--output", "/tmp/memory_usage.dat", "--python", "gunicorn", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:9000", "app.main:app", "--timeout", "240"]
-################ PROFILING ################
-
-# Command to run your application
-CMD ["sh", "-c", "chown -R appuser:appuser /app/data && gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:9000 app.main:app --timeout 240"]
+CMD ["gunicorn", "-w", "2", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:9000", "app.main:app", "--timeout", "240"]

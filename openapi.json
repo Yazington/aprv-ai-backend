@@ -574,6 +574,29 @@
           }
         }
       }
+    },
+    "/tools": {
+      "get": {
+        "summary": "Get Available Tools",
+        "description": "Get a list of all available LLM tools with their descriptions and parameters.",
+        "operationId": "get_available_tools_tools_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response Get Available Tools Tools Get"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

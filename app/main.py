@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import auth, chat, conversation, upload
+from app.api import auth, chat, conversation, tools, upload_controller
 from app.middlewares.token_validation_middleware import TokenValidationMiddleware
 
 # Initialize FastAPI application with metadata
@@ -47,9 +47,10 @@ app.add_middleware(TokenValidationMiddleware)
 
 # Include all API routers
 app.include_router(chat.router)  # Chat-related endpoints
-app.include_router(upload.router)  # File upload endpoints
+app.include_router(upload_controller.router)  # File upload endpoints
 app.include_router(auth.router)  # Authentication endpoints
 app.include_router(conversation.router)  # Conversation management endpoints
+app.include_router(tools.router)  # LLM tools endpoints
 
 # Generate and save OpenAPI schema to file
 with open("openapi.json", "w") as f:
