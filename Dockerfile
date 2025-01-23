@@ -13,8 +13,7 @@ RUN python -m venv /app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
 COPY requirements.txt .
-RUN --mount=type=cache,id=cache-railway-pip,target=/root/.cache/pip \
-    pip install --no-cache-dir -r requirements.txt gunicorn memory_profiler
+RUN pip install --no-cache-dir -r requirements.txt gunicorn memory_profiler
 
 # Cleanup builder stage
 RUN find /app/venv -type d -name 'tests' -exec rm -rf {} + && \
